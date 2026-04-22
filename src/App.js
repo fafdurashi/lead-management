@@ -343,6 +343,8 @@ function CallbacksPanel({ leads, onSelect }) {
 export default function App() {
   const [user,setUser]           = useState(null);
   const [authLoading,setAuthLoading] = useState(true);
+  const [needsName,setNeedsName] = useState(false);
+  const [typedName,setTypedName] = useState("");
   const [agents,setAgents]       = useState([]);
   const [leads,setLeads]         = useState([]);
   const [loading,setLoading]     = useState(false);
@@ -356,7 +358,13 @@ export default function App() {
   const [fDisp,setFDisp]         = useState("All");
   const [fSrc,setFSrc]           = useState("All");
   const [fAgent,setFAgent]       = useState("All");
+  const [dateFrom,setDateFrom]   = useState("");
+  const [dateTo,setDateTo]       = useState("");
   const [sortBy,setSortBy]       = useState("dateReceived");
+  // Daily target
+  const [target,setTarget]       = useState(()=>Number(localStorage.getItem("lf_target")||10));
+  const [showTargetEdit,setShowTargetEdit] = useState(false);
+  const [tempTarget,setTempTarget] = useState(10);
   const [showAdd,setShowAdd]     = useState(false);
   const [showWaAdd,setShowWaAdd] = useState(false);
   const [showAgents,setShowAgents] = useState(false);
@@ -367,7 +375,8 @@ export default function App() {
   const [delLead,setDelLead]     = useState(null);
 
   const isAdmin    = user?.email===ADMIN_EMAIL;
-  const agentName  = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Agent";
+  // agentName comes from agents table (their typed name), fallback to Google name
+  const [agentName, setAgentName] = useState("");
   const agentPhoto = user?.user_metadata?.avatar_url;
 
   const showToast=(msg,type="success")=>{ setToast({msg,type}); setTimeout(()=>setToast(null),4000); };
@@ -379,30 +388,66 @@ export default function App() {
     return()=>subscription.unsubscribe();
   },[]);
 
-  // Auto-register agent + load agents list
+  // On login: check if agent exists in DB, if not → show name entry screen
   useEffect(()=>{
     if(!user) return;
-    // Auto-register this user as agent if not already in agents table
-    supabase.from("agents").upsert({
-      id: user.id,
-      email: user.email,
-      full_name: user?.user_metadata?.full_name || user.email.split("@")[0],
-      avatar_url: user?.user_metadata?.avatar_url || "",
-      role: user.email===ADMIN_EMAIL ? "admin" : "agent",
-      is_active: true,
-    }, { onConflict: "id" });
-    // Load all agents (for admin dropdown)
-    supabase.from("agents").select("*").eq("is_active",true).order("full_name")
-      .then(({data})=>setAgents(data||[]));
+    const register = async () => {
+      // Check if already registered
+      const {data:existing} = await supabase.from("agents").select("*").eq("id", user.id).single();
+      if(existing) {
+        // Already registered — use their saved name
+        setAgentName(existing.full_name);
+        setNeedsName(false);
+        // Reload agents list
+        const {data:allAgents} = await supabase.from("agents").select("*").eq("is_active",true).order("full_name");
+        setAgents(allAgents||[]);
+      } else {
+        // First time — admin auto-registers with email prefix, agents must type name
+        if(user.email===ADMIN_EMAIL) {
+          await supabase.from("agents").insert({
+            id: user.id, email: user.email,
+            full_name: "Admin",
+            avatar_url: user?.user_metadata?.avatar_url||"",
+            role: "admin", is_active: true,
+          });
+          setAgentName("Admin");
+          setNeedsName(false);
+          const {data:allAgents} = await supabase.from("agents").select("*").eq("is_active",true).order("full_name");
+          setAgents(allAgents||[]);
+        } else {
+          // New agent — ask for their name
+          setNeedsName(true);
+        }
+      }
+    };
+    register();
   },[user]);
 
-  // Load leads
+  // Save agent name (called after they type it)
+  const saveAgentName = async () => {
+    if(!typedName.trim()) return;
+    const name = typedName.trim();
+    await supabase.from("agents").insert({
+      id: user.id, email: user.email,
+      full_name: name,
+      avatar_url: user?.user_metadata?.avatar_url||"",
+      role: "agent", is_active: true,
+    });
+    setAgentName(name);
+    setNeedsName(false);
+    // Reload agents list
+    const {data:allAgents} = await supabase.from("agents").select("*").eq("is_active",true).order("full_name");
+    setAgents(allAgents||[]);
+    showToast(`Welcome ${name}! Your account is ready ✅`);
+  };
+
+  // Load leads (depends on agentName being set)
   useEffect(()=>{
-    if(!user) return;
+    if(!user || !agentName) return;
     setLoading(true);
     const q=isAdmin?supabase.from("leads").select("*").order("created_at",{ascending:false}):supabase.from("leads").select("*").eq("agent",agentName).order("created_at",{ascending:false});
     q.then(({data,error})=>{ if(error) showToast("Failed to load leads","error"); else setLeads((data||[]).map(fromDb)); setLoading(false); });
-  },[user]);
+  },[agentName]);
 
   // ── Google Sheet sync ─────────────────────────────────────────────────────
   const syncFromSheet = useCallback(async () => {
@@ -462,30 +507,154 @@ export default function App() {
 
   // Auto sync every 5 minutes
   useEffect(()=>{
-    if(!user) return;
-    syncFromSheet(); // initial sync on login
+    if(!user || !agentName) return;
+    syncFromSheet();
     const interval = setInterval(syncFromSheet, SYNC_INTERVAL);
     return()=>clearInterval(interval);
-  },[user]);
+  },[agentName]);
+
+  // ── Real-time live updates via Supabase ───────────────────────────────────
+  useEffect(()=>{
+    if(!agentName) return;
+    const channel = supabase.channel("leads-realtime")
+      .on("postgres_changes",{ event:"INSERT", schema:"public", table:"leads" }, payload=>{
+        const newLead = fromDb(payload.new);
+        if(isAdmin || newLead.agent===agentName){
+          setLeads(ls=>{
+            if(ls.find(l=>l.id===newLead.id)) return ls;
+            showToast(`🆕 New lead: ${newLead.leadName}`);
+            return [newLead,...ls];
+          });
+        }
+      })
+      .on("postgres_changes",{ event:"UPDATE", schema:"public", table:"leads" }, payload=>{
+        const updated = fromDb(payload.new);
+        if(isAdmin || updated.agent===agentName){
+          setLeads(ls=>ls.map(l=>l.id===updated.id?updated:l));
+          if(detail?.id===updated.id) setDetail(updated);
+        }
+      })
+      .on("postgres_changes",{ event:"DELETE", schema:"public", table:"leads" }, payload=>{
+        setLeads(ls=>ls.filter(l=>l.id!==payload.old.id));
+      })
+      .on("postgres_changes",{ event:"INSERT", schema:"public", table:"agents" }, payload=>{
+        setAgents(ls=>[...ls, payload.new]);
+      })
+      .subscribe();
+    return()=>supabase.removeChannel(channel);
+  },[agentName]);
+
+  // ── Callback reminder notifications ──────────────────────────────────────
+  useEffect(()=>{
+    if(!agentName) return;
+    // Request notification permission
+    if("Notification" in window && Notification.permission==="default"){
+      Notification.requestPermission();
+    }
+    const checkCallbacks = ()=>{
+      const now = new Date();
+      const nowDate = now.toISOString().split("T")[0];
+      const nowTime = now.toTimeString().slice(0,5);
+      leads.forEach(l=>{
+        if(l.disposition==="Callback" && l.callbackDate===nowDate && l.callbackTime){
+          const diff = Math.abs(new Date(`${l.callbackDate}T${l.callbackTime}`)-now);
+          if(diff < 60000){ // within 1 minute
+            const key = `reminded_${l.id}_${l.callbackDate}_${l.callbackTime}`;
+            if(!sessionStorage.getItem(key)){
+              sessionStorage.setItem(key,"1");
+              // Browser notification
+              if(Notification.permission==="granted"){
+                new Notification(`📞 Callback Due: ${l.leadName}`,{
+                  body:`Call ${l.phone} now — scheduled for ${l.callbackTime}`,
+                  icon:"/favicon.ico"
+                });
+              }
+              showToast(`🔔 Callback due NOW: ${l.leadName} — ${l.phone}`,"error");
+            }
+          }
+        }
+      });
+    };
+    const interval = setInterval(checkCallbacks, 30000); // check every 30s
+    checkCallbacks();
+    return()=>clearInterval(interval);
+  },[leads, agentName]);
+
+  // ── Export to Excel ───────────────────────────────────────────────────────
+  const exportToExcel = ()=>{
+    const headers = ["Serial No","Date Received","Customer Name","Phone","WhatsApp","EID No","City","Language","Source","Campaign","Ad Set","Product","Disposition","Lead Status","Sales Status","Agent","Call Attempts","Last Call Date","Follow-up Date","Call Notes","Sheet Link"];
+    const rows = filtered.map(l=>[
+      l.serialNo, l.dateReceived, l.leadName, l.phone, l.whatsappNumber,
+      l.eidNo, l.city, l.language, l.adSource, l.adCampaign, l.adSet,
+      l.product, l.disposition, l.leadStatus, l.salesStatus, l.agent,
+      l.attemptCount, l.lastCallDate, l.callbackDate, l.callNotes, l.sheetLink
+    ]);
+    const csv = [headers,...rows].map(r=>r.map(v=>`"${(v||"").toString().replace(/"/g,'""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv],{type:"text/csv"});
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href=url; a.download=`leads_${todayStr()}.csv`; a.click();
+    URL.revokeObjectURL(url);
+    showToast(`✅ Exported ${filtered.length} leads to CSV`);
+  };
 
   const urgentCbs=useMemo(()=>leads.filter(l=>isOverdue(l)||isDueToday(l)).length,[leads]);
   const allAgents=useMemo(()=>[...new Set(leads.map(l=>l.agent).filter(Boolean))],[leads]);
+  const todayLeads = useMemo(()=>leads.filter(l=>l.dateReceived===todayStr()),[leads]);
+  const todayConverted = useMemo(()=>todayLeads.filter(l=>l.disposition==="Converted").length,[todayLeads]);
 
   const filtered=useMemo(()=>leads.filter(l=>{
     const q=search.toLowerCase();
+    const inDateRange = (!dateFrom||l.dateReceived>=dateFrom)&&(!dateTo||l.dateReceived<=dateTo);
     return (!q||l.leadName.toLowerCase().includes(q)||l.phone.includes(q)||l.adCampaign?.toLowerCase().includes(q)||l.eidNo?.includes(q))
       &&(fDisp==="All"||l.disposition===fDisp)
       &&(fSrc==="All"||l.adSource===fSrc)
-      &&(fAgent==="All"||l.agent===fAgent);
-  }).sort((a,b)=>sortBy==="leadName"?a.leadName.localeCompare(b.leadName):sortBy==="attempts"?b.attemptCount-a.attemptCount:(b.dateReceived+b.timeReceived).localeCompare(a.dateReceived+a.timeReceived)),[leads,search,fDisp,fSrc,fAgent,sortBy]);
+      &&(fAgent==="All"||l.agent===fAgent)
+      &&inDateRange;
+  }).sort((a,b)=>sortBy==="leadName"?a.leadName.localeCompare(b.leadName):sortBy==="attempts"?b.attemptCount-a.attemptCount:(b.dateReceived+b.timeReceived).localeCompare(a.dateReceived+a.timeReceived)),[leads,search,fDisp,fSrc,fAgent,sortBy,dateFrom,dateTo]);
 
   const add=async form=>{ setSaving(true); const {data,error}=await supabase.from("leads").insert(toDb(form)).select().single(); if(error) showToast("Failed to add","error"); else { setLeads(ls=>[fromDb(data),...ls]); setShowAdd(false); showToast("✅ Lead added!"); } setSaving(false); };
   const upd=async(id,patch)=>{ setSaving(true); const {data,error}=await supabase.from("leads").update(toDb(patch)).eq("id",id).select().single(); if(error) showToast("Failed to update","error"); else { const u=fromDb(data); setLeads(ls=>ls.map(l=>l.id===id?u:l)); if(detail?.id===id) setDetail(u); setDispLead(null); setEditLead(null); showToast("✅ Updated!"); } setSaving(false); };
   const del=async id=>{ setSaving(true); const {error}=await supabase.from("leads").delete().eq("id",id); if(error) showToast("Failed to delete","error"); else { setLeads(ls=>ls.filter(l=>l.id!==id)); setDelLead(null); setDetail(null); showToast("🗑️ Deleted"); } setSaving(false); };
   const signOut=async()=>{ await supabase.auth.signOut(); setUser(null); setLeads([]); };
 
-  if(authLoading) return (<div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:"#f0f2f8" }}><div style={{ textAlign:"center" }}><div style={{ width:44, height:44, border:"4px solid #e2e8f0", borderTop:"4px solid #6366f1", borderRadius:"50%", margin:"0 auto 16px", animation:"spin 0.8s linear infinite" }}/><div style={{ color:"#64748b", fontWeight:600, fontFamily:"sans-serif" }}>Loading…</div></div><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></div>);
+  if(authLoading || (user && !agentName && !needsName)) return (<div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:"#f0f2f8" }}><div style={{ textAlign:"center" }}><div style={{ width:44, height:44, border:"4px solid #e2e8f0", borderTop:"4px solid #6366f1", borderRadius:"50%", margin:"0 auto 16px", animation:"spin 0.8s linear infinite" }}/><div style={{ color:"#64748b", fontWeight:600, fontFamily:"sans-serif" }}>Setting up your account…</div></div><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></div>);
   if(!user) return <LoginScreen/>;
+
+  // First time agent — ask for their name
+  if(needsName) return (
+    <div style={{ minHeight:"100vh", background:"linear-gradient(135deg,#0f172a,#1e293b)", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'DM Sans',sans-serif" }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@700;800;900&family=DM+Sans:wght@400;500;600;700;800&display=swap'); *{box-sizing:border-box} @keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      <div style={{ background:"#fff", borderRadius:24, padding:"48px 40px", width:"100%", maxWidth:440, textAlign:"center", boxShadow:"0 32px 96px rgba(0,0,0,.4)" }}>
+        {/* Profile photo from Google */}
+        {agentPhoto
+          ? <img src={agentPhoto} alt="" style={{ width:72, height:72, borderRadius:"50%", objectFit:"cover", margin:"0 auto 16px", display:"block", border:"3px solid #6366f1" }}/>
+          : <div style={{ width:72, height:72, borderRadius:"50%", background:"linear-gradient(135deg,#6366f1,#3b82f6)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:32, margin:"0 auto 16px" }}>👤</div>
+        }
+        <div style={{ fontWeight:900, fontSize:22, color:"#0f172a", fontFamily:"'Sora',sans-serif", marginBottom:4 }}>Welcome to LeadFlow!</div>
+        <div style={{ fontSize:13, color:"#64748b", marginBottom:8 }}>{user.email}</div>
+        <div style={{ fontSize:13, color:"#64748b", marginBottom:28 }}>Please enter your name so your team can identify you</div>
+
+        <div style={{ textAlign:"left", marginBottom:20 }}>
+          <label style={{ fontSize:11, fontWeight:700, color:"#64748b", display:"block", marginBottom:6, letterSpacing:.4 }}>YOUR FULL NAME</label>
+          <input
+            value={typedName}
+            onChange={e=>setTypedName(e.target.value)}
+            onKeyDown={e=>e.key==="Enter"&&saveAgentName()}
+            placeholder="e.g. Sara Ahmed"
+            autoFocus
+            style={{ width:"100%", border:"1.5px solid #e2e8f0", borderRadius:10, padding:"12px 16px", fontSize:16, fontFamily:"inherit", outline:"none", boxSizing:"border-box", color:"#0f172a", fontWeight:600 }}
+          />
+          <div style={{ fontSize:11, color:"#94a3b8", marginTop:6 }}>This name will appear on leads assigned to you</div>
+        </div>
+
+        <button onClick={saveAgentName} disabled={!typedName.trim()}
+          style={{ width:"100%", padding:"13px", borderRadius:12, border:"none", background: typedName.trim()?"linear-gradient(135deg,#6366f1,#3b82f6)":"#e2e8f0", color: typedName.trim()?"#fff":"#94a3b8", cursor: typedName.trim()?"pointer":"not-allowed", fontWeight:800, fontSize:15, fontFamily:"inherit" }}>
+          Continue to LeadFlow →
+        </button>
+      </div>
+    </div>
+  );
 
   const total=leads.length,conv=leads.filter(l=>l.disposition==="Converted").length;
   const intr=leads.filter(l=>l.disposition==="Interested").length,cbs=leads.filter(l=>l.disposition==="Callback").length;
@@ -539,7 +708,7 @@ export default function App() {
         {isAdmin&&<div style={{ background:"#fef3c7", border:"1px solid #fde68a", borderRadius:10, padding:"10px 16px", marginBottom:16, fontSize:13 }}>👑 <span style={{ fontWeight:600, color:"#92400e" }}>Admin view — ALL leads from all agents ({total} total)</span></div>}
 
         {/* STATS */}
-        <div style={{ display:"flex", gap:10, marginBottom:20, flexWrap:"wrap" }}>
+        <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap" }}>
           <Stat icon="👥" label="TOTAL LEADS" value={loading?"…":total} sub={`${filtered.length} shown`} accent="#6366f1"/>
           <Stat icon="✅" label="INTERESTED" value={loading?"…":intr} sub="hot prospects" accent="#10b981"/>
           <Stat icon="🏆" label="CONVERTED" value={loading?"…":conv} sub={`${total?((conv/total)*100).toFixed(0):0}% rate`} accent="#059669"/>
@@ -547,6 +716,42 @@ export default function App() {
           <Stat icon="📲" label="DIGITAL LEADS" value={loading?"…":digital} sub="from ads" accent="#6366f1"/>
           <Stat icon="◉" label="OTHERS" value={loading?"…":others} sub="other sources" accent="#64748b"/>
         </div>
+
+        {/* 🎯 Daily Target Tracker */}
+        <div style={{ background:"#fff", borderRadius:14, border:"1px solid #e9ecf3", padding:"14px 20px", marginBottom:16, display:"flex", alignItems:"center", gap:16, flexWrap:"wrap" }}>
+          <div style={{ flex:1, minWidth:200 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+              <div style={{ fontWeight:700, fontSize:13, color:"#0f172a" }}>🎯 Today's Target — Conversions</div>
+              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                <span style={{ fontSize:13, fontWeight:800, color: todayConverted>=target?"#059669":"#6366f1" }}>{todayConverted} / {target}</span>
+                <button onClick={()=>{setTempTarget(target);setShowTargetEdit(true);}} style={{ padding:"3px 10px", borderRadius:6, border:"1.5px solid #e2e8f0", background:"#f8f9ff", cursor:"pointer", fontSize:11, fontWeight:700, color:"#64748b", fontFamily:"inherit" }}>Edit</button>
+              </div>
+            </div>
+            <div style={{ background:"#f1f5f9", borderRadius:20, height:10, overflow:"hidden" }}>
+              <div style={{ height:"100%", width:`${Math.min((todayConverted/target)*100,100)}%`, background: todayConverted>=target?"linear-gradient(90deg,#10b981,#059669)":"linear-gradient(90deg,#6366f1,#3b82f6)", borderRadius:20, transition:"width .5s ease" }}/>
+            </div>
+            <div style={{ fontSize:11, color:"#94a3b8", marginTop:4 }}>
+              {todayConverted>=target ? "🎉 Target reached today!" : `${target-todayConverted} more conversion${target-todayConverted===1?"":"s"} to hit today's target`}
+            </div>
+          </div>
+          <div style={{ display:"flex", gap:8 }}>
+            {[["📥 Today",todayStr(),todayStr()],["📅 This Week",new Date(Date.now()-6*864e5).toISOString().split("T")[0],todayStr()],["📆 This Month",todayStr().slice(0,8)+"01",todayStr()]].map(([lbl,from,to])=>(
+              <button key={lbl} onClick={()=>{setDateFrom(from);setDateTo(to);}} style={{ padding:"6px 12px", borderRadius:7, border:`1.5px solid ${dateFrom===from&&dateTo===to?"#6366f1":"#e2e8f0"}`, background:dateFrom===from&&dateTo===to?"#eef2ff":"#fff", color:dateFrom===from&&dateTo===to?"#6366f1":"#64748b", cursor:"pointer", fontWeight:700, fontSize:12, fontFamily:"inherit" }}>{lbl}</button>
+            ))}
+            {(dateFrom||dateTo)&&<button onClick={()=>{setDateFrom("");setDateTo("");}} style={{ padding:"6px 12px", borderRadius:7, border:"1.5px solid #e2e8f0", background:"#fff", color:"#ef4444", cursor:"pointer", fontWeight:700, fontSize:12, fontFamily:"inherit" }}>✕ Clear</button>}
+          </div>
+        </div>
+
+        {/* Target edit modal */}
+        {showTargetEdit&&(
+          <div onClick={()=>setShowTargetEdit(false)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.4)", zIndex:999, display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <div onClick={e=>e.stopPropagation()} style={{ background:"#fff", borderRadius:16, padding:28, width:300, textAlign:"center", boxShadow:"0 16px 48px rgba(0,0,0,.2)" }}>
+              <div style={{ fontWeight:800, fontSize:16, marginBottom:16, fontFamily:"'Sora',sans-serif" }}>🎯 Set Daily Target</div>
+              <input type="number" min="1" value={tempTarget} onChange={e=>setTempTarget(Number(e.target.value))} style={{ width:"100%", border:"1.5px solid #e2e8f0", borderRadius:8, padding:"10px", fontSize:18, textAlign:"center", fontFamily:"inherit", outline:"none", marginBottom:16, fontWeight:800 }}/>
+              <button onClick={()=>{ localStorage.setItem("lf_target",tempTarget); setTarget(tempTarget); setShowTargetEdit(false); }} style={{ width:"100%", padding:10, borderRadius:9, border:"none", background:"linear-gradient(135deg,#6366f1,#3b82f6)", color:"#fff", fontWeight:800, fontSize:14, cursor:"pointer", fontFamily:"inherit" }}>Save Target</button>
+            </div>
+          </div>
+        )}
 
         {loading&&<div style={{ textAlign:"center", padding:60 }}><div style={{ width:40, height:40, border:"4px solid #e2e8f0", borderTop:"4px solid #6366f1", borderRadius:"50%", margin:"0 auto 16px", animation:"spin 0.8s linear infinite" }}/><div style={{ color:"#64748b", fontWeight:600 }}>Loading leads…</div></div>}
 
@@ -558,7 +763,10 @@ export default function App() {
               <select value={fDisp} onChange={e=>setFDisp(e.target.value)} style={inp}><option value="All">All Dispositions</option>{DISPOSITIONS.map(d=><option key={d.label}>{d.label}</option>)}</select>
               <select value={fSrc} onChange={e=>setFSrc(e.target.value)} style={inp}><option value="All">All Sources</option>{AD_SOURCES.map(s=><option key={s}>{s}</option>)}</select>
               {isAdmin&&<select value={fAgent} onChange={e=>setFAgent(e.target.value)} style={inp}><option value="All">All Agents</option>{allAgents.map(a=><option key={a}>{a}</option>)}</select>}
+              <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)} style={{...inp,cursor:"text"}} title="From date"/>
+              <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)} style={{...inp,cursor:"text"}} title="To date"/>
               <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={inp}><option value="dateReceived">Newest First</option><option value="leadName">Name A–Z</option><option value="attempts">Most Attempts</option></select>
+              <button onClick={exportToExcel} style={{ padding:"8px 14px", borderRadius:8, border:"1.5px solid #10b981", background:"#ecfdf5", color:"#059669", cursor:"pointer", fontWeight:700, fontSize:13, fontFamily:"inherit", whiteSpace:"nowrap" }}>📤 Export</button>
             </div>
 
             <div style={{ background:"#fff", borderRadius:14, border:"1px solid #e9ecf3", overflow:"auto" }}>
