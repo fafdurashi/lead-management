@@ -6,27 +6,85 @@ const SUPABASE_URL = "https://mswsvjaortcotuytlvdq.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1zd3N2amFvcnRjb3R1eXRsdmRxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4Mzg3NjgsImV4cCI6MjA5MjQxNDc2OH0.9FxvfwGOW1ae6-EomRMhHMfVUY5aCfeyZHMDXgrCAyc";
 const HEADERS = { "Content-Type": "application/json", "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` };
 
-const db = {
-  async getAll() {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/leads?select=*&order=created_at.desc`, { headers: HEADERS });
+// ADMIN Gmail - sees ALL leads
+const ADMIN_EMAIL = "rashick2012@gmail.com";
+
+// Auth helpers
+const auth = {
+  async signInWithGoogle() {
+    const redirectTo = window.location.origin;
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`, {
+      method: "GET", headers: { "apikey": SUPABASE_KEY },
+    });
+    // redirect manually
+    const url = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`;
+    window.location.href = url;
+  },
+  async getSession() {
+    // check hash for access_token (OAuth callback)
+    const hash = window.location.hash;
+    if (hash && hash.includes("access_token")) {
+      const params = new URLSearchParams(hash.replace("#", ""));
+      const access_token = params.get("access_token");
+      const refresh_token = params.get("refresh_token");
+      if (access_token) {
+        localStorage.setItem("sb_access_token", access_token);
+        if (refresh_token) localStorage.setItem("sb_refresh_token", refresh_token);
+        window.location.hash = "";
+        return access_token;
+      }
+    }
+    return localStorage.getItem("sb_access_token");
+  },
+  async getUser(token) {
+    if (!token) return null;
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${token}` } });
+    if (!r.ok) return null;
     return r.json();
   },
-  async insert(lead) {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/leads`, { method: "POST", headers: { ...HEADERS, "Prefer": "return=representation" }, body: JSON.stringify(toDb(lead)) });
+  signOut() {
+    localStorage.removeItem("sb_access_token");
+    localStorage.removeItem("sb_refresh_token");
+    window.location.reload();
+  }
+};
+
+// DB helpers
+const makeHeaders = (token) => ({
+  "Content-Type": "application/json",
+  "apikey": SUPABASE_KEY,
+  "Authorization": `Bearer ${token || SUPABASE_KEY}`,
+});
+
+const db = {
+  async getAll(token, agentName, isAdmin) {
+    const filter = isAdmin ? "" : `&agent=eq.${encodeURIComponent(agentName)}`;
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/leads?select=*&order=created_at.desc${filter}`, { headers: makeHeaders(token) });
+    return r.json();
+  },
+  async insert(token, lead) {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/leads`, {
+      method: "POST",
+      headers: { ...makeHeaders(token), "Prefer": "return=representation" },
+      body: JSON.stringify(toDb(lead)),
+    });
     const data = await r.json();
     return data[0];
   },
-  async update(id, patch) {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/leads?id=eq.${id}`, { method: "PATCH", headers: { ...HEADERS, "Prefer": "return=representation" }, body: JSON.stringify(toDb(patch)) });
+  async update(token, id, patch) {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/leads?id=eq.${id}`, {
+      method: "PATCH",
+      headers: { ...makeHeaders(token), "Prefer": "return=representation" },
+      body: JSON.stringify(toDb(patch)),
+    });
     const data = await r.json();
     return data[0];
   },
-  async delete(id) {
-    await fetch(`${SUPABASE_URL}/rest/v1/leads?id=eq.${id}`, { method: "DELETE", headers: HEADERS });
+  async delete(token, id) {
+    await fetch(`${SUPABASE_URL}/rest/v1/leads?id=eq.${id}`, { method: "DELETE", headers: makeHeaders(token) });
   },
 };
 
-// map camelCase ↔ snake_case
 const toDb = o => {
   const m = {};
   if (o.serialNo       !== undefined) m.serial_no       = o.serialNo;
@@ -81,7 +139,7 @@ const fromDb = o => ({
 });
 
 // ── constants ─────────────────────────────────────────────────────────────────
-const AD_SOURCES  = ["Facebook", "Instagram", "WhatsApp Click-to-Chat"];
+const AD_SOURCES   = ["Facebook", "Instagram", "WhatsApp Click-to-Chat"];
 const DISPOSITIONS = [
   { label:"New",            color:"#6366f1", bg:"#eef2ff", icon:"🆕" },
   { label:"Contacted",      color:"#f59e0b", bg:"#fffbeb", icon:"📞" },
@@ -93,20 +151,17 @@ const DISPOSITIONS = [
   { label:"Converted",      color:"#059669", bg:"#d1fae5", icon:"🏆" },
   { label:"Dropped",        color:"#dc2626", bg:"#fee2e2", icon:"🗑️" },
 ];
-const AGENTS    = ["Rania K.", "Omar S.", "Lina M.", "Tariq H.", "Sara A."];
 const PRODUCTS  = ["Product A", "Product B", "Product C", "Service Plan X", "Service Plan Y"];
 const LANGUAGES = ["Arabic", "English", "French", "Urdu", "Hindi", "Other"];
 const GENDERS   = ["Male", "Female", "Not Specified"];
 const CITIES    = ["Dubai","Abu Dhabi","Sharjah","Riyadh","Jeddah","Cairo","Amman","Kuwait City","Doha","Other"];
 
-const EMPTY = { serialNo:"", dateReceived:new Date().toISOString().split("T")[0], timeReceived:"", leadName:"", phone:"", whatsappNumber:"", email:"", gender:"Not Specified", city:"", language:"Arabic", adSource:"Facebook", adCampaign:"", adSet:"", product:"", disposition:"New", callbackDate:"", callbackTime:"", agent:AGENTS[0], callNotes:"", attemptCount:0, lastCallDate:"", sheetLink:"" };
-
-const todayStr  = () => new Date().toISOString().split("T")[0];
+const todayStr   = () => new Date().toISOString().split("T")[0];
 const isOverdue  = l => l.disposition==="Callback" && l.callbackDate && l.callbackDate < todayStr();
 const isDueToday = l => l.disposition==="Callback" && l.callbackDate && l.callbackDate === todayStr();
 const getD       = label => DISPOSITIONS.find(d => d.label===label) || DISPOSITIONS[0];
 
-// ── tiny UI components ────────────────────────────────────────────────────────
+// ── UI helpers ────────────────────────────────────────────────────────────────
 function Badge({ label }) {
   const d = getD(label);
   return <span style={{ display:"inline-flex", alignItems:"center", gap:4, background:d.bg, color:d.color, border:`1px solid ${d.color}33`, borderRadius:20, padding:"2px 9px", fontSize:11, fontWeight:700, whiteSpace:"nowrap" }}>{d.icon} {label}</span>;
@@ -154,8 +209,45 @@ function Toast({ msg, type }) {
   return <div style={{ position:"fixed", bottom:24, right:24, background:bg, color:"#fff", borderRadius:10, padding:"12px 20px", fontWeight:700, fontSize:14, zIndex:9999, boxShadow:"0 8px 24px rgba(0,0,0,.2)", animation:"mIn .2s ease" }}>{msg}</div>;
 }
 
-// ── lead form ─────────────────────────────────────────────────────────────────
-function LeadForm({ initial, onSave, onCancel, title, saving }) {
+// ── LOGIN SCREEN ──────────────────────────────────────────────────────────────
+function LoginScreen({ onLogin, loading }) {
+  return (
+    <div style={{ minHeight:"100vh", background:"linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#0f172a 100%)", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'DM Sans','Segoe UI',sans-serif" }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@700;800;900&family=DM+Sans:wght@400;500;600;700;800&display=swap');`}</style>
+      <div style={{ background:"#fff", borderRadius:24, padding:"48px 40px", width:"100%", maxWidth:420, textAlign:"center", boxShadow:"0 32px 96px rgba(0,0,0,.4)" }}>
+        {/* Logo */}
+        <div style={{ width:64, height:64, background:"linear-gradient(135deg,#6366f1,#3b82f6)", borderRadius:18, display:"flex", alignItems:"center", justifyContent:"center", fontSize:32, margin:"0 auto 20px" }}>📲</div>
+        <div style={{ fontWeight:900, fontSize:28, color:"#0f172a", fontFamily:"'Sora',sans-serif", marginBottom:6 }}>LeadFlow</div>
+        <div style={{ fontSize:13, color:"#64748b", marginBottom:32, fontWeight:500 }}>Telesales CRM — Sign in to continue</div>
+
+        {/* Google Sign In Button */}
+        <button onClick={onLogin} disabled={loading} style={{
+          width:"100%", padding:"14px 20px", borderRadius:12, border:"1.5px solid #e2e8f0",
+          background:"#fff", cursor:loading?"not-allowed":"pointer", fontWeight:700, fontSize:15,
+          color:"#0f172a", fontFamily:"inherit", display:"flex", alignItems:"center", justifyContent:"center",
+          gap:12, boxShadow:"0 2px 8px rgba(0,0,0,.08)", transition:"all .15s", opacity:loading?0.7:1,
+        }}>
+          {/* Google G icon */}
+          <svg width="20" height="20" viewBox="0 0 48 48">
+            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.35-8.16 2.35-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+          </svg>
+          {loading ? "Signing in…" : "Sign in with Google"}
+        </button>
+
+        <div style={{ marginTop:24, fontSize:12, color:"#94a3b8" }}>
+          Use your Gmail account to access LeadFlow.<br/>
+          Contact your admin if you need access.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── LEAD FORM ─────────────────────────────────────────────────────────────────
+function LeadForm({ initial, onSave, onCancel, title, saving, agentName, isAdmin }) {
   const [f, setF] = useState(initial);
   const s = (k,v) => setF(x=>({...x,[k]:v}));
   const inp = { width:"100%", border:"1.5px solid #e2e8f0", borderRadius:8, padding:"8px 11px", fontSize:13, fontFamily:"inherit", outline:"none", background:"#fafbfc", boxSizing:"border-box", color:"#0f172a" };
@@ -201,7 +293,12 @@ function LeadForm({ initial, onSave, onCancel, title, saving }) {
       <div style={{ fontSize:10, fontWeight:800, color:"#3b82f6", letterSpacing:1, marginBottom:10 }}>💼 SALES DETAILS</div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:16 }}>
         <F label="Product / Service"><select value={f.product} onChange={e=>s("product",e.target.value)} style={{...inp,cursor:"pointer"}}><option value="">Select…</option>{PRODUCTS.map(p=><option key={p}>{p}</option>)}</select></F>
-        <F label="Assigned Agent"><select value={f.agent} onChange={e=>s("agent",e.target.value)} style={{...inp,cursor:"pointer"}}>{AGENTS.map(a=><option key={a}>{a}</option>)}</select></F>
+        <F label="Assigned Agent" span="1">
+          {isAdmin
+            ? <input value={f.agent} onChange={e=>s("agent",e.target.value)} style={inp} placeholder="Agent name"/>
+            : <input value={agentName} disabled style={{...inp, background:"#f1f5f9", color:"#64748b"}}/>
+          }
+        </F>
         <F label="Call Attempts"><input type="number" min="0" value={f.attemptCount} onChange={e=>s("attemptCount",Number(e.target.value))} style={inp}/></F>
         <F label="Disposition"><select value={f.disposition} onChange={e=>s("disposition",e.target.value)} style={{...inp,cursor:"pointer"}}>{DISPOSITIONS.map(d=><option key={d.label}>{d.label}</option>)}</select></F>
         <F label="Last Call Date"><input type="date" value={f.lastCallDate} onChange={e=>s("lastCallDate",e.target.value)} style={inp}/></F>
@@ -225,15 +322,16 @@ function LeadForm({ initial, onSave, onCancel, title, saving }) {
 
       <div style={{ display:"flex", gap:10, marginTop:20, justifyContent:"flex-end" }}>
         <button onClick={onCancel} style={{ padding:"9px 18px", borderRadius:8, border:"1.5px solid #e2e8f0", background:"#fff", cursor:"pointer", fontWeight:700, fontSize:13, color:"#64748b", fontFamily:"inherit" }}>Cancel</button>
-        <button onClick={()=>f.leadName&&onSave(f)} disabled={saving} style={{ padding:"9px 22px", borderRadius:8, border:"none", background:"linear-gradient(135deg,#6366f1,#3b82f6)", cursor:"pointer", fontWeight:800, fontSize:13, color:"#fff", fontFamily:"inherit", boxShadow:"0 4px 14px rgba(99,102,241,.35)", opacity:saving?0.7:1 }}>
-          {saving ? "Saving…" : "Save Lead"}
+        <button onClick={()=>f.leadName&&onSave({...f, agent: isAdmin ? f.agent : agentName})} disabled={saving}
+          style={{ padding:"9px 22px", borderRadius:8, border:"none", background:"linear-gradient(135deg,#6366f1,#3b82f6)", cursor:"pointer", fontWeight:800, fontSize:13, color:"#fff", fontFamily:"inherit", opacity:saving?0.7:1 }}>
+          {saving?"Saving…":"Save Lead"}
         </button>
       </div>
     </div>
   );
 }
 
-// ── disposition quick panel ───────────────────────────────────────────────────
+// ── DISPOSITION PANEL ─────────────────────────────────────────────────────────
 function DispPanel({ lead, onUpdate, onClose, saving }) {
   const [disp, setDisp]     = useState(lead.disposition);
   const [notes, setNotes]   = useState(lead.callNotes);
@@ -252,8 +350,7 @@ function DispPanel({ lead, onUpdate, onClose, saving }) {
         </div>
         <button onClick={onClose} style={{ background:"none", border:"none", fontSize:20, cursor:"pointer", color:"#94a3b8" }}>✕</button>
       </div>
-
-      <div style={{ fontSize:10, fontWeight:700, color:"#64748b", marginBottom:8, letterSpacing:.4 }}>SELECT DISPOSITION</div>
+      <div style={{ fontSize:10, fontWeight:700, color:"#64748b", marginBottom:8 }}>SELECT DISPOSITION</div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:7, marginBottom:16 }}>
         {DISPOSITIONS.map(d=>(
           <button key={d.label} onClick={()=>setDisp(d.label)} style={{ padding:"8px 5px", borderRadius:8, cursor:"pointer", fontWeight:700, fontSize:11, fontFamily:"inherit", border:disp===d.label?`2px solid ${d.color}`:"1.5px solid #e2e8f0", background:disp===d.label?d.bg:"#fafbfc", color:disp===d.label?d.color:"#64748b" }}>
@@ -261,7 +358,6 @@ function DispPanel({ lead, onUpdate, onClose, saving }) {
           </button>
         ))}
       </div>
-
       {needCb && (
         <div style={{ background:"#eff6ff", border:"1.5px solid #3b82f6", borderRadius:10, padding:"12px 14px", marginBottom:14 }}>
           <div style={{ fontSize:10, fontWeight:700, color:"#3b82f6", marginBottom:10 }}>🔁 SCHEDULE CALLBACK</div>
@@ -271,34 +367,30 @@ function DispPanel({ lead, onUpdate, onClose, saving }) {
           </div>
         </div>
       )}
-
       <div style={{ marginBottom:14 }}>
         <div style={{ fontSize:10, fontWeight:700, color:"#64748b", marginBottom:6 }}>CALL NOTES</div>
         <textarea value={notes} onChange={e=>setNotes(e.target.value)} rows={3} style={{...inp,resize:"vertical"}} placeholder="What happened on this call?"/>
       </div>
-
       <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:18 }}>
         <div style={{ fontSize:11, fontWeight:700, color:"#64748b" }}>CALL ATTEMPTS</div>
         <button onClick={()=>setTries(Math.max(0,tries-1))} style={{ width:28, height:28, borderRadius:6, border:"1.5px solid #e2e8f0", background:"#fff", cursor:"pointer", fontWeight:800, fontSize:14, fontFamily:"inherit" }}>−</button>
         <span style={{ fontWeight:800, fontSize:16, minWidth:24, textAlign:"center" }}>{tries}</span>
         <button onClick={()=>setTries(tries+1)} style={{ width:28, height:28, borderRadius:6, border:"1.5px solid #e2e8f0", background:"#fff", cursor:"pointer", fontWeight:800, fontSize:14, fontFamily:"inherit" }}>+</button>
       </div>
-
       <button onClick={()=>onUpdate({ disposition:disp, callNotes:notes, callbackDate:cbDate, callbackTime:cbTime, attemptCount:tries, lastCallDate:todayStr() })}
         disabled={saving}
         style={{ width:"100%", padding:12, borderRadius:10, border:"none", background:"linear-gradient(135deg,#6366f1,#3b82f6)", cursor:"pointer", fontWeight:800, fontSize:14, color:"#fff", fontFamily:"inherit", opacity:saving?0.7:1 }}>
-        {saving ? "Saving…" : "Save Update"}
+        {saving?"Saving…":"Save Update"}
       </button>
     </div>
   );
 }
 
-// ── callbacks panel ───────────────────────────────────────────────────────────
+// ── CALLBACKS PANEL ───────────────────────────────────────────────────────────
 function CallbacksPanel({ leads, onSelect }) {
   const overdue  = leads.filter(isOverdue);
   const dueToday = leads.filter(isDueToday);
   const upcoming = leads.filter(l=>l.disposition==="Callback"&&l.callbackDate&&l.callbackDate>todayStr());
-
   const Row = ({ lead, tag, tagColor }) => (
     <div onClick={()=>onSelect(lead)} style={{ display:"flex", alignItems:"center", gap:12, padding:"11px 14px", borderRadius:10, background:"#fff", border:"1px solid #e9ecf3", marginBottom:8, cursor:"pointer" }}
       onMouseEnter={e=>e.currentTarget.style.boxShadow="0 4px 14px rgba(0,0,0,.08)"}
@@ -314,17 +406,15 @@ function CallbacksPanel({ leads, onSelect }) {
       </div>
     </div>
   );
-
-  const Section = ({ title, items, tag, tagColor }) => items.length ? (
+  const Section = ({ title, items, tag, tagColor }) => items.length?(
     <div style={{ marginBottom:20 }}>
       <div style={{ fontSize:12, fontWeight:800, color:tagColor, marginBottom:10 }}>{title} ({items.length})</div>
       {items.map(l=><Row key={l.id} lead={l} tag={tag} tagColor={tagColor}/>)}
     </div>
-  ) : null;
-
-  return overdue.length+dueToday.length+upcoming.length===0 ? (
+  ):null;
+  return overdue.length+dueToday.length+upcoming.length===0?(
     <div style={{ textAlign:"center", padding:48, color:"#94a3b8" }}><div style={{ fontSize:36, marginBottom:8 }}>✅</div><div style={{ fontWeight:600 }}>No callbacks scheduled</div></div>
-  ) : (
+  ):(
     <>
       <Section title="🚨 OVERDUE"   items={overdue}  tag="Overdue"   tagColor="#ef4444"/>
       <Section title="⏰ DUE TODAY" items={dueToday} tag="Today"     tagColor="#f59e0b"/>
@@ -333,17 +423,20 @@ function CallbacksPanel({ leads, onSelect }) {
   );
 }
 
-// ── main app ──────────────────────────────────────────────────────────────────
+// ── MAIN APP ──────────────────────────────────────────────────────────────────
 export default function App() {
+  const [session, setSession]   = useState(null);
+  const [user, setUser]         = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [loginLoading, setLoginLoading] = useState(false);
   const [leads, setLeads]       = useState([]);
-  const [loading, setLoading]   = useState(true);
+  const [loading, setLoading]   = useState(false);
   const [saving, setSaving]     = useState(false);
   const [toast, setToast]       = useState(null);
   const [tab, setTab]           = useState("leads");
   const [search, setSearch]     = useState("");
   const [fDisp, setFDisp]       = useState("All");
   const [fSrc, setFSrc]         = useState("All");
-  const [fAgent, setFAgent]     = useState("All");
   const [fProd, setFProd]       = useState("All");
   const [sortBy, setSortBy]     = useState("dateReceived");
   const [showAdd, setShowAdd]   = useState(false);
@@ -352,17 +445,35 @@ export default function App() {
   const [detail, setDetail]     = useState(null);
   const [delLead, setDelLead]   = useState(null);
 
+  const isAdmin    = user?.email === ADMIN_EMAIL;
+  const agentName  = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Agent";
+  const agentPhoto = user?.user_metadata?.avatar_url;
+
   const showToast = (msg, type="success") => {
     setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
+    setTimeout(()=>setToast(null), 3000);
   };
 
-  // load leads from Supabase on mount
-  useEffect(() => {
-    db.getAll()
-      .then(data => { setLeads((data||[]).map(fromDb)); setLoading(false); })
-      .catch(() => { showToast("Failed to load leads", "error"); setLoading(false); });
-  }, []);
+  // Auth on mount
+  useEffect(()=>{
+    auth.getSession().then(async token => {
+      if (token) {
+        const u = await auth.getUser(token);
+        if (u && !u.error) { setSession(token); setUser(u); }
+        else { localStorage.removeItem("sb_access_token"); }
+      }
+      setAuthLoading(false);
+    });
+  },[]);
+
+  // Load leads when logged in
+  useEffect(()=>{
+    if (!session || !user) return;
+    setLoading(true);
+    db.getAll(session, agentName, isAdmin)
+      .then(data=>{ setLeads((data||[]).map(fromDb)); setLoading(false); })
+      .catch(()=>{ showToast("Failed to load leads","error"); setLoading(false); });
+  },[session, user]);
 
   const urgentCbs = useMemo(()=>leads.filter(l=>isOverdue(l)||isDueToday(l)).length,[leads]);
 
@@ -371,56 +482,74 @@ export default function App() {
     return (!q||l.leadName.toLowerCase().includes(q)||l.phone.includes(q)||l.adCampaign?.toLowerCase().includes(q))
       &&(fDisp==="All"||l.disposition===fDisp)
       &&(fSrc==="All"||l.adSource===fSrc)
-      &&(fAgent==="All"||l.agent===fAgent)
       &&(fProd==="All"||l.product===fProd);
   }).sort((a,b)=>{
     if(sortBy==="leadName") return a.leadName.localeCompare(b.leadName);
     if(sortBy==="attempts") return b.attemptCount-a.attemptCount;
     return (b.dateReceived+b.timeReceived).localeCompare(a.dateReceived+a.timeReceived);
-  }),[leads,search,fDisp,fSrc,fAgent,fProd,sortBy]);
+  }),[leads,search,fDisp,fSrc,fProd,sortBy]);
 
   const add = async form => {
     setSaving(true);
     try {
-      const saved = await db.insert(form);
-      setLeads(ls=>[fromDb(saved), ...ls]);
+      const saved = await db.insert(session, form);
+      setLeads(ls=>[fromDb(saved),...ls]);
       setShowAdd(false);
-      showToast("✅ Lead added successfully!");
-    } catch { showToast("Failed to add lead", "error"); }
+      showToast("✅ Lead added!");
+    } catch { showToast("Failed to add lead","error"); }
     setSaving(false);
   };
 
   const upd = async (id, patch) => {
     setSaving(true);
     try {
-      const saved = await db.update(id, patch);
+      const saved = await db.update(session, id, patch);
       const updated = fromDb(saved);
-      setLeads(ls=>ls.map(l=>l.id===id ? updated : l));
+      setLeads(ls=>ls.map(l=>l.id===id?updated:l));
       if(detail?.id===id) setDetail(updated);
       setDispLead(null); setEditLead(null);
       showToast("✅ Lead updated!");
-    } catch { showToast("Failed to update lead", "error"); }
+    } catch { showToast("Failed to update","error"); }
     setSaving(false);
   };
 
   const del = async id => {
     setSaving(true);
     try {
-      await db.delete(id);
+      await db.delete(session, id);
       setLeads(ls=>ls.filter(l=>l.id!==id));
       setDelLead(null); setDetail(null);
       showToast("🗑️ Lead deleted");
-    } catch { showToast("Failed to delete lead", "error"); }
+    } catch { showToast("Failed to delete","error"); }
     setSaving(false);
   };
 
-  const total=leads.length;
+  const handleGoogleLogin = async () => {
+    setLoginLoading(true);
+    await auth.signInWithGoogle();
+  };
+
+  // Show loading spinner while checking auth
+  if (authLoading) return (
+    <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:"#f0f2f8", fontFamily:"'DM Sans',sans-serif" }}>
+      <div style={{ textAlign:"center" }}>
+        <div style={{ width:44, height:44, border:"4px solid #e2e8f0", borderTop:"4px solid #6366f1", borderRadius:"50%", margin:"0 auto 16px", animation:"spin 0.8s linear infinite" }}/>
+        <div style={{ color:"#64748b", fontWeight:600 }}>Loading…</div>
+      </div>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
+
+  // Show login if not authenticated
+  if (!session || !user) return <LoginScreen onLogin={handleGoogleLogin} loading={loginLoading}/>;
+
+  // Stats
+  const total=leads.length, conv=leads.filter(l=>l.disposition==="Converted").length;
+  const intr=leads.filter(l=>l.disposition==="Interested").length;
+  const cbs=leads.filter(l=>l.disposition==="Callback").length;
   const fb=leads.filter(l=>l.adSource==="Facebook").length;
   const ig=leads.filter(l=>l.adSource==="Instagram").length;
   const wa=leads.filter(l=>l.adSource==="WhatsApp Click-to-Chat").length;
-  const conv=leads.filter(l=>l.disposition==="Converted").length;
-  const intr=leads.filter(l=>l.disposition==="Interested").length;
-  const cbs=leads.filter(l=>l.disposition==="Callback").length;
 
   const inp = { border:"1.5px solid #e2e8f0", borderRadius:8, padding:"8px 11px", fontSize:13, fontFamily:"inherit", background:"#fff", outline:"none", cursor:"pointer", color:"#0f172a" };
   const navB = (id,lbl,badge) => (
@@ -428,6 +557,8 @@ export default function App() {
       {lbl}{badge>0&&<span style={{ background:"#ef4444", color:"#fff", borderRadius:10, padding:"1px 6px", fontSize:10, fontWeight:900 }}>{badge}</span>}
     </button>
   );
+
+  const EMPTY = { serialNo:"", dateReceived:todayStr(), timeReceived:"", leadName:"", phone:"", whatsappNumber:"", email:"", gender:"Not Specified", city:"", language:"Arabic", adSource:"Facebook", adCampaign:"", adSet:"", product:"", disposition:"New", callbackDate:"", callbackTime:"", agent:agentName, callNotes:"", attemptCount:0, lastCallDate:"", sheetLink:"" };
 
   return (
     <div style={{ fontFamily:"'DM Sans','Segoe UI',sans-serif", background:"#f0f2f8", minHeight:"100vh" }}>
@@ -442,28 +573,59 @@ export default function App() {
         tbody tr:hover td{background:#f8f9ff!important}
       `}</style>
 
-      {/* header */}
+      {/* HEADER */}
       <div style={{ background:"#fff", borderBottom:"1px solid #e9ecf3", padding:"0 22px" }}>
         <div style={{ maxWidth:1500, margin:"0 auto", display:"flex", alignItems:"center", justifyContent:"space-between", height:56 }}>
           <div style={{ display:"flex", alignItems:"center", gap:10 }}>
             <div style={{ width:34, height:34, background:"linear-gradient(135deg,#6366f1,#3b82f6)", borderRadius:10, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>📲</div>
             <div>
               <div style={{ fontWeight:900, fontSize:16, color:"#0f172a", fontFamily:"'Sora',sans-serif", lineHeight:1.1 }}>LeadFlow</div>
-              <div style={{ fontSize:9, color:"#94a3b8", fontWeight:700, letterSpacing:.4 }}>TELESALES CRM</div>
+              <div style={{ fontSize:9, color:"#94a3b8", fontWeight:700, letterSpacing:.4 }}>{isAdmin?"ADMIN":"TELESALES AGENT"}</div>
             </div>
           </div>
+
           <div style={{ display:"flex", gap:3, background:"#f0f2f8", borderRadius:10, padding:3 }}>
-            {navB("leads","📋 All Leads")}
+            {navB("leads","📋 Leads")}
             {navB("callbacks","🔁 Callbacks",urgentCbs)}
             {navB("analytics","📊 Analytics")}
           </div>
-          <button onClick={()=>setShowAdd(true)} style={{ padding:"9px 18px", borderRadius:9, border:"none", background:"linear-gradient(135deg,#6366f1,#3b82f6)", color:"#fff", fontWeight:800, fontSize:13, cursor:"pointer", fontFamily:"inherit", boxShadow:"0 4px 14px rgba(99,102,241,.4)" }}>+ Add Lead</button>
+
+          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+            {isAdmin && <span style={{ background:"#fef3c7", color:"#92400e", borderRadius:8, padding:"3px 10px", fontSize:11, fontWeight:800 }}>👑 Admin</span>}
+            <button onClick={()=>setShowAdd(true)} style={{ padding:"8px 16px", borderRadius:9, border:"none", background:"linear-gradient(135deg,#6366f1,#3b82f6)", color:"#fff", fontWeight:800, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}>+ Add Lead</button>
+            {/* User avatar + logout */}
+            <div style={{ display:"flex", alignItems:"center", gap:8, borderLeft:"1px solid #e9ecf3", paddingLeft:12 }}>
+              {agentPhoto
+                ? <img src={agentPhoto} alt="" style={{ width:32, height:32, borderRadius:"50%", objectFit:"cover" }}/>
+                : <Ava name={agentName} size={32}/>
+              }
+              <div>
+                <div style={{ fontSize:12, fontWeight:700, color:"#0f172a", lineHeight:1.2 }}>{agentName}</div>
+                <div style={{ fontSize:10, color:"#94a3b8" }}>{user.email}</div>
+              </div>
+              <button onClick={auth.signOut} style={{ padding:"5px 10px", borderRadius:7, border:"1.5px solid #e2e8f0", background:"#fff", cursor:"pointer", fontSize:11, fontWeight:700, color:"#64748b", fontFamily:"inherit" }}>Sign Out</button>
+            </div>
+          </div>
         </div>
       </div>
 
       <div style={{ maxWidth:1500, margin:"0 auto", padding:"20px 22px" }}>
 
-        {/* stats */}
+        {/* Agent banner — shows what they can see */}
+        {!isAdmin && (
+          <div style={{ background:"#eff6ff", border:"1px solid #bfdbfe", borderRadius:10, padding:"10px 16px", marginBottom:16, display:"flex", alignItems:"center", gap:8, fontSize:13 }}>
+            <span>👤</span>
+            <span style={{ fontWeight:600, color:"#1e40af" }}>Showing only leads assigned to <strong>{agentName}</strong></span>
+          </div>
+        )}
+        {isAdmin && (
+          <div style={{ background:"#fef3c7", border:"1px solid #fde68a", borderRadius:10, padding:"10px 16px", marginBottom:16, display:"flex", alignItems:"center", gap:8, fontSize:13 }}>
+            <span>👑</span>
+            <span style={{ fontWeight:600, color:"#92400e" }}>Admin view — showing ALL leads from all agents</span>
+          </div>
+        )}
+
+        {/* STATS */}
         <div style={{ display:"flex", gap:10, marginBottom:20, flexWrap:"wrap" }}>
           <Stat icon="👥" label="TOTAL LEADS" value={loading?"…":total} sub={`${filtered.length} shown`} accent="#6366f1"/>
           <Stat icon="✅" label="INTERESTED"  value={loading?"…":intr}  sub="hot prospects"              accent="#10b981"/>
@@ -474,23 +636,22 @@ export default function App() {
           <Stat icon="W"  label="WHATSAPP"    value={loading?"…":wa}    sub="leads"                      accent="#25d366"/>
         </div>
 
-        {/* loading state */}
+        {/* Loading */}
         {loading && (
           <div style={{ textAlign:"center", padding:60 }}>
             <div style={{ width:40, height:40, border:"4px solid #e2e8f0", borderTop:"4px solid #6366f1", borderRadius:"50%", margin:"0 auto 16px", animation:"spin 0.8s linear infinite" }}/>
-            <div style={{ color:"#64748b", fontWeight:600 }}>Loading leads from database…</div>
+            <div style={{ color:"#64748b", fontWeight:600 }}>Loading leads…</div>
           </div>
         )}
 
-        {/* ── LEADS TAB ── */}
+        {/* LEADS TAB */}
         {!loading && tab==="leads" && (
           <>
             <div style={{ display:"flex", gap:8, marginBottom:14, flexWrap:"wrap" }}>
               <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍  Search name, phone, campaign…" style={{...inp,flex:1,minWidth:200,cursor:"text"}}/>
-              <select value={fDisp}  onChange={e=>setFDisp(e.target.value)}  style={inp}><option value="All">All Dispositions</option>{DISPOSITIONS.map(d=><option key={d.label}>{d.label}</option>)}</select>
-              <select value={fSrc}   onChange={e=>setFSrc(e.target.value)}   style={inp}><option value="All">All Sources</option>{AD_SOURCES.map(s=><option key={s}>{s}</option>)}</select>
-              <select value={fAgent} onChange={e=>setFAgent(e.target.value)} style={inp}><option value="All">All Agents</option>{AGENTS.map(a=><option key={a}>{a}</option>)}</select>
-              <select value={fProd}  onChange={e=>setFProd(e.target.value)}  style={inp}><option value="All">All Products</option>{PRODUCTS.map(p=><option key={p}>{p}</option>)}</select>
+              <select value={fDisp} onChange={e=>setFDisp(e.target.value)} style={inp}><option value="All">All Dispositions</option>{DISPOSITIONS.map(d=><option key={d.label}>{d.label}</option>)}</select>
+              <select value={fSrc}  onChange={e=>setFSrc(e.target.value)}  style={inp}><option value="All">All Sources</option>{AD_SOURCES.map(s=><option key={s}>{s}</option>)}</select>
+              <select value={fProd} onChange={e=>setFProd(e.target.value)} style={inp}><option value="All">All Products</option>{PRODUCTS.map(p=><option key={p}>{p}</option>)}</select>
               <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={inp}>
                 <option value="dateReceived">Newest First</option>
                 <option value="leadName">Name A–Z</option>
@@ -542,7 +703,7 @@ export default function App() {
                         <td style={{ padding:"11px 12px" }}><Badge label={l.disposition}/></td>
                         <td style={{ padding:"11px 12px" }}>
                           <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                            <Ava name={l.agent} size={22}/>
+                            <Ava name={l.agent||"?"} size={22}/>
                             <span style={{ fontSize:12, color:"#475569" }}>{l.agent}</span>
                           </div>
                         </td>
@@ -561,7 +722,7 @@ export default function App() {
                           <div style={{ display:"flex", gap:4 }}>
                             <button onClick={()=>setDispLead(l)} style={{ padding:"4px 8px", borderRadius:6, border:"none", background:"#eef2ff", color:"#6366f1", cursor:"pointer", fontWeight:700, fontSize:11, fontFamily:"inherit" }}>Update</button>
                             <button onClick={()=>setEditLead(l)} style={{ padding:"4px 8px", borderRadius:6, border:"none", background:"#f1f5f9", color:"#475569", cursor:"pointer", fontWeight:700, fontSize:11, fontFamily:"inherit" }}>Edit</button>
-                            <button onClick={()=>setDelLead(l)}  style={{ padding:"4px 8px", borderRadius:6, border:"none", background:"#fef2f2", color:"#ef4444", cursor:"pointer", fontWeight:700, fontSize:11, fontFamily:"inherit" }}>Del</button>
+                            {(isAdmin || l.agent===agentName) && <button onClick={()=>setDelLead(l)} style={{ padding:"4px 8px", borderRadius:6, border:"none", background:"#fef2f2", color:"#ef4444", cursor:"pointer", fontWeight:700, fontSize:11, fontFamily:"inherit" }}>Del</button>}
                           </div>
                         </td>
                       </tr>
@@ -575,7 +736,7 @@ export default function App() {
           </>
         )}
 
-        {/* ── CALLBACKS TAB ── */}
+        {/* CALLBACKS TAB */}
         {!loading && tab==="callbacks" && (
           <div style={{ maxWidth:680 }}>
             <div style={{ fontWeight:900, fontSize:20, color:"#0f172a", fontFamily:"'Sora',sans-serif", marginBottom:18 }}>🔁 Callback Schedule</div>
@@ -583,7 +744,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ── ANALYTICS TAB ── */}
+        {/* ANALYTICS TAB */}
         {!loading && tab==="analytics" && (
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
             <div style={{ background:"#fff", borderRadius:14, border:"1px solid #e9ecf3", padding:22 }}>
@@ -591,107 +752,62 @@ export default function App() {
               {DISPOSITIONS.map(d=>{
                 const n=leads.filter(l=>l.disposition===d.label).length;
                 const p=total?(n/total)*100:0;
-                return n>0?(
-                  <div key={d.label} style={{ marginBottom:11 }}>
-                    <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                      <span style={{ fontSize:13, fontWeight:600, color:"#475569" }}>{d.icon} {d.label}</span>
-                      <div style={{ display:"flex", gap:10 }}><span style={{ fontSize:12, color:"#94a3b8" }}>{n}</span><span style={{ fontSize:12, fontWeight:800, color:d.color }}>{p.toFixed(0)}%</span></div>
-                    </div>
-                    <div style={{ background:"#f1f5f9", borderRadius:6, height:7, overflow:"hidden" }}>
-                      <div style={{ height:"100%", width:`${p}%`, background:d.color, borderRadius:6 }}/>
-                    </div>
+                return n>0?(<div key={d.label} style={{ marginBottom:11 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                    <span style={{ fontSize:13, fontWeight:600, color:"#475569" }}>{d.icon} {d.label}</span>
+                    <div style={{ display:"flex", gap:10 }}><span style={{ fontSize:12, color:"#94a3b8" }}>{n}</span><span style={{ fontSize:12, fontWeight:800, color:d.color }}>{p.toFixed(0)}%</span></div>
                   </div>
-                ):null;
+                  <div style={{ background:"#f1f5f9", borderRadius:6, height:7, overflow:"hidden" }}><div style={{ height:"100%", width:`${p}%`, background:d.color, borderRadius:6 }}/></div>
+                </div>):null;
               })}
             </div>
-
             <div style={{ background:"#fff", borderRadius:14, border:"1px solid #e9ecf3", padding:22 }}>
               <div style={{ fontWeight:800, fontSize:15, marginBottom:16, fontFamily:"'Sora',sans-serif" }}>Leads by Ad Platform</div>
               {[{src:"Facebook",n:fb,c:"#1877f2"},{src:"Instagram",n:ig,c:"#c13584"},{src:"WhatsApp Click-to-Chat",n:wa,c:"#25d366"}].map(({src,n,c})=>{
                 const p=total?(n/total)*100:0;
-                return (
-                  <div key={src} style={{ marginBottom:18 }}>
-                    <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
-                      <span style={{ fontSize:13, fontWeight:700 }}>{src==="WhatsApp Click-to-Chat"?"WhatsApp":src}</span>
-                      <span style={{ fontSize:13, fontWeight:800, color:c }}>{n} ({p.toFixed(0)}%)</span>
-                    </div>
-                    <div style={{ background:"#f1f5f9", borderRadius:8, height:10, overflow:"hidden" }}>
-                      <div style={{ height:"100%", width:`${p}%`, background:c, borderRadius:8 }}/>
-                    </div>
-                  </div>
-                );
+                return (<div key={src} style={{ marginBottom:18 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}><span style={{ fontSize:13, fontWeight:700 }}>{src==="WhatsApp Click-to-Chat"?"WhatsApp":src}</span><span style={{ fontSize:13, fontWeight:800, color:c }}>{n} ({p.toFixed(0)}%)</span></div>
+                  <div style={{ background:"#f1f5f9", borderRadius:8, height:10, overflow:"hidden" }}><div style={{ height:"100%", width:`${p}%`, background:c, borderRadius:8 }}/></div>
+                </div>);
               })}
-              <div style={{ borderTop:"1px solid #f1f5f9", marginTop:16, paddingTop:16 }}>
-                <div style={{ fontWeight:800, fontSize:14, marginBottom:12 }}>Conversion by Source</div>
-                {AD_SOURCES.map(src=>{
-                  const sl=leads.filter(l=>l.adSource===src);
-                  const sc=sl.filter(l=>l.disposition==="Converted").length;
-                  return <div key={src} style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", borderBottom:"1px solid #f8f9fc", fontSize:13 }}>
-                    <span style={{ color:"#475569", fontWeight:600 }}>{src==="WhatsApp Click-to-Chat"?"WhatsApp":src}</span>
-                    <span style={{ fontWeight:800, color:"#059669" }}>{sc}/{sl.length} ({sl.length?((sc/sl.length)*100).toFixed(0):0}%)</span>
-                  </div>;
-                })}
+            </div>
+            {isAdmin && (
+              <div style={{ background:"#fff", borderRadius:14, border:"1px solid #e9ecf3", padding:22, gridColumn:"1/-1" }}>
+                <div style={{ fontWeight:800, fontSize:15, marginBottom:16, fontFamily:"'Sora',sans-serif" }}>👑 All Agent Performance</div>
+                <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
+                  <thead><tr style={{ borderBottom:"1px solid #f1f5f9" }}>{["Agent","Leads","Converted","Interested","Conv Rate"].map(h=><th key={h} style={{ padding:"5px 10px", textAlign:"left", fontSize:10, fontWeight:800, color:"#94a3b8" }}>{h}</th>)}</tr></thead>
+                  <tbody>
+                    {[...new Set(leads.map(l=>l.agent))].filter(Boolean).map(a=>{
+                      const al=leads.filter(l=>l.agent===a);
+                      const ac=al.filter(l=>l.disposition==="Converted").length;
+                      const ai=al.filter(l=>l.disposition==="Interested").length;
+                      const r=((ac/al.length)*100).toFixed(0);
+                      return <tr key={a} style={{ borderBottom:"1px solid #f8f9fc" }}>
+                        <td style={{ padding:"10px 10px" }}><div style={{ display:"flex", alignItems:"center", gap:8 }}><Ava name={a} size={26}/><span style={{ fontWeight:700 }}>{a}</span></div></td>
+                        <td style={{ padding:"10px 10px", color:"#475569" }}>{al.length}</td>
+                        <td style={{ padding:"10px 10px" }}><span style={{ background:"#d1fae5", color:"#059669", borderRadius:20, padding:"1px 8px", fontSize:11, fontWeight:800 }}>{ac}</span></td>
+                        <td style={{ padding:"10px 10px" }}><span style={{ background:"#ecfdf5", color:"#10b981", borderRadius:20, padding:"1px 8px", fontSize:11, fontWeight:800 }}>{ai}</span></td>
+                        <td style={{ padding:"10px 10px", fontWeight:900, color:Number(r)>=20?"#059669":"#0f172a" }}>{r}%</td>
+                      </tr>;
+                    })}
+                  </tbody>
+                </table>
               </div>
-            </div>
-
-            <div style={{ background:"#fff", borderRadius:14, border:"1px solid #e9ecf3", padding:22 }}>
-              <div style={{ fontWeight:800, fontSize:15, marginBottom:16, fontFamily:"'Sora',sans-serif" }}>Agent Performance</div>
-              <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
-                <thead><tr style={{ borderBottom:"1px solid #f1f5f9" }}>{["Agent","Leads","Conv","Int","Rate"].map(h=><th key={h} style={{ padding:"5px 8px", textAlign:"left", fontSize:10, fontWeight:800, color:"#94a3b8" }}>{h}</th>)}</tr></thead>
-                <tbody>
-                  {AGENTS.map(a=>{
-                    const al=leads.filter(l=>l.agent===a);
-                    if(!al.length) return null;
-                    const ac=al.filter(l=>l.disposition==="Converted").length;
-                    const ai=al.filter(l=>l.disposition==="Interested").length;
-                    const r=((ac/al.length)*100).toFixed(0);
-                    return <tr key={a} style={{ borderBottom:"1px solid #f8f9fc" }}>
-                      <td style={{ padding:"9px 8px" }}><div style={{ display:"flex", alignItems:"center", gap:7 }}><Ava name={a} size={24}/><span style={{ fontWeight:700 }}>{a}</span></div></td>
-                      <td style={{ padding:"9px 8px", color:"#475569" }}>{al.length}</td>
-                      <td style={{ padding:"9px 8px" }}><span style={{ background:"#d1fae5", color:"#059669", borderRadius:20, padding:"1px 7px", fontSize:11, fontWeight:800 }}>{ac}</span></td>
-                      <td style={{ padding:"9px 8px" }}><span style={{ background:"#ecfdf5", color:"#10b981", borderRadius:20, padding:"1px 7px", fontSize:11, fontWeight:800 }}>{ai}</span></td>
-                      <td style={{ padding:"9px 8px", fontWeight:900, color:Number(r)>=20?"#059669":"#0f172a" }}>{r}%</td>
-                    </tr>;
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            <div style={{ background:"#fff", borderRadius:14, border:"1px solid #e9ecf3", padding:22 }}>
-              <div style={{ fontWeight:800, fontSize:15, marginBottom:16, fontFamily:"'Sora',sans-serif" }}>Top Campaigns</div>
-              {(()=>{
-                const m={};
-                leads.forEach(l=>{ if(l.adCampaign) m[l.adCampaign]=(m[l.adCampaign]||0)+1; });
-                const entries=Object.entries(m).sort((a,b)=>b[1]-a[1]);
-                return entries.length===0?<div style={{ color:"#94a3b8", fontSize:13 }}>No campaign data yet</div>:entries.map(([name,n])=>(
-                  <div key={name} style={{ marginBottom:11 }}>
-                    <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                      <span style={{ fontSize:13, fontWeight:600, color:"#475569" }}>{name}</span>
-                      <span style={{ fontSize:12, fontWeight:800, color:"#6366f1" }}>{n} leads</span>
-                    </div>
-                    <div style={{ background:"#f1f5f9", borderRadius:6, height:7, overflow:"hidden" }}>
-                      <div style={{ height:"100%", width:`${(n/total)*100}%`, background:"linear-gradient(90deg,#6366f1,#3b82f6)", borderRadius:6 }}/>
-                    </div>
-                  </div>
-                ));
-              })()}
-            </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* modals */}
+      {/* MODALS */}
       <Modal show={showAdd} onClose={()=>setShowAdd(false)} width={700}>
-        <LeadForm initial={EMPTY} onSave={add} onCancel={()=>setShowAdd(false)} title="➕ Add New Lead" saving={saving}/>
+        <LeadForm initial={EMPTY} onSave={add} onCancel={()=>setShowAdd(false)} title="➕ Add New Lead" saving={saving} agentName={agentName} isAdmin={isAdmin}/>
       </Modal>
       <Modal show={!!editLead} onClose={()=>setEditLead(null)} width={700}>
-        {editLead&&<LeadForm initial={editLead} onSave={f=>upd(editLead.id,f)} onCancel={()=>setEditLead(null)} title="✏️ Edit Lead" saving={saving}/>}
+        {editLead&&<LeadForm initial={editLead} onSave={f=>upd(editLead.id,f)} onCancel={()=>setEditLead(null)} title="✏️ Edit Lead" saving={saving} agentName={agentName} isAdmin={isAdmin}/>}
       </Modal>
       <Modal show={!!dispLead} onClose={()=>setDispLead(null)} width={480}>
         {dispLead&&<DispPanel lead={dispLead} onUpdate={p=>upd(dispLead.id,p)} onClose={()=>setDispLead(null)} saving={saving}/>}
       </Modal>
-
-      {/* detail modal */}
       <Modal show={!!detail} onClose={()=>setDetail(null)} width={560}>
         {detail&&(
           <div style={{ padding:26 }}>
@@ -724,14 +840,12 @@ export default function App() {
           </div>
         )}
       </Modal>
-
-      {/* delete confirm */}
       <Modal show={!!delLead} onClose={()=>setDelLead(null)} width={380}>
         {delLead&&(
           <div style={{ padding:32, textAlign:"center" }}>
             <div style={{ fontSize:42, marginBottom:12 }}>🗑️</div>
             <div style={{ fontWeight:900, fontSize:17, marginBottom:8, fontFamily:"'Sora',sans-serif" }}>Delete this lead?</div>
-            <div style={{ color:"#64748b", marginBottom:22, fontSize:14 }}>This will permanently remove <strong>{delLead.leadName}</strong> from the database.</div>
+            <div style={{ color:"#64748b", marginBottom:22, fontSize:14 }}>This will permanently remove <strong>{delLead.leadName}</strong>.</div>
             <div style={{ display:"flex", gap:10, justifyContent:"center" }}>
               <button onClick={()=>setDelLead(null)} style={{ padding:"9px 22px", borderRadius:8, border:"1.5px solid #e2e8f0", background:"#fff", cursor:"pointer", fontWeight:700, fontSize:13, fontFamily:"inherit", color:"#64748b" }}>Cancel</button>
               <button onClick={()=>del(delLead.id)} disabled={saving} style={{ padding:"9px 22px", borderRadius:8, border:"none", background:"#ef4444", color:"#fff", cursor:"pointer", fontWeight:800, fontSize:13, fontFamily:"inherit", opacity:saving?0.7:1 }}>{saving?"Deleting…":"Delete"}</button>
@@ -739,9 +853,7 @@ export default function App() {
           </div>
         )}
       </Modal>
-
-      {/* toast */}
-      {toast && <Toast msg={toast.msg} type={toast.type}/>}
+      {toast&&<Toast msg={toast.msg} type={toast.type}/>}
     </div>
   );
 }
