@@ -357,6 +357,8 @@ export default function App() {
   const [fAgent,setFAgent]       = useState("All");
   const [sortBy,setSortBy]       = useState("dateReceived");
   const [showAdd,setShowAdd]     = useState(false);
+  const [showWaAdd,setShowWaAdd] = useState(false);
+  const [waPhone,setWaPhone]     = useState("");
   const [editLead,setEditLead]   = useState(null);
   const [dispLead,setDispLead]   = useState(null);
   const [detail,setDetail]       = useState(null);
@@ -497,7 +499,8 @@ export default function App() {
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:10 }}>
             {isAdmin&&<span style={{ background:"#fef3c7", color:"#92400e", borderRadius:8, padding:"3px 10px", fontSize:11, fontWeight:800 }}>👑 Admin</span>}
-            <button onClick={()=>setShowAdd(true)} style={{ padding:"8px 16px", borderRadius:9, border:"none", background:"linear-gradient(135deg,#6366f1,#3b82f6)", color:"#fff", fontWeight:800, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}>+ Add Lead</button>
+            {isAdmin&&<button onClick={()=>setShowWaAdd(true)} style={{ padding:"8px 14px", borderRadius:9, border:"none", background:"#25d366", color:"#fff", fontWeight:800, fontSize:13, cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", gap:6 }}>💬 WhatsApp Lead</button>}
+            {isAdmin&&<button onClick={()=>setShowAdd(true)} style={{ padding:"8px 16px", borderRadius:9, border:"none", background:"linear-gradient(135deg,#6366f1,#3b82f6)", color:"#fff", fontWeight:800, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}>+ Add Lead</button>}
             <div style={{ display:"flex", alignItems:"center", gap:8, borderLeft:"1px solid #e9ecf3", paddingLeft:12 }}>
               {agentPhoto?<img src={agentPhoto} alt="" style={{ width:32, height:32, borderRadius:"50%", objectFit:"cover" }}/>:<Ava name={agentName} size={32}/>}
               <div><div style={{ fontSize:12, fontWeight:700, color:"#0f172a", lineHeight:1.2 }}>{agentName}</div><div style={{ fontSize:10, color:"#94a3b8" }}>{user.email}</div></div>
@@ -575,8 +578,8 @@ export default function App() {
                       <td style={{ padding:"10px 12px" }}>
                         <div style={{ display:"flex", gap:4 }}>
                           <button onClick={()=>setDispLead(l)} style={{ padding:"4px 8px", borderRadius:6, border:"none", background:"#eef2ff", color:"#6366f1", cursor:"pointer", fontWeight:700, fontSize:11, fontFamily:"inherit" }}>Update</button>
-                          <button onClick={()=>setEditLead(l)} style={{ padding:"4px 8px", borderRadius:6, border:"none", background:"#f1f5f9", color:"#475569", cursor:"pointer", fontWeight:700, fontSize:11, fontFamily:"inherit" }}>Edit</button>
-                          {(isAdmin||l.agent===agentName)&&<button onClick={()=>setDelLead(l)} style={{ padding:"4px 8px", borderRadius:6, border:"none", background:"#fef2f2", color:"#ef4444", cursor:"pointer", fontWeight:700, fontSize:11, fontFamily:"inherit" }}>Del</button>}
+                          {isAdmin&&<button onClick={()=>setEditLead(l)} style={{ padding:"4px 8px", borderRadius:6, border:"none", background:"#f1f5f9", color:"#475569", cursor:"pointer", fontWeight:700, fontSize:11, fontFamily:"inherit" }}>Edit</button>}
+                          {isAdmin&&<button onClick={()=>setDelLead(l)} style={{ padding:"4px 8px", borderRadius:6, border:"none", background:"#fef2f2", color:"#ef4444", cursor:"pointer", fontWeight:700, fontSize:11, fontFamily:"inherit" }}>Del</button>}
                         </div>
                       </td>
                     </tr>);
@@ -623,7 +626,103 @@ export default function App() {
         )}
       </div>
 
-      <Modal show={showAdd} onClose={()=>setShowAdd(false)} width={700}><LeadForm initial={EMPTY} onSave={add} onCancel={()=>setShowAdd(false)} title="➕ Add New Lead" saving={saving} agentName={agentName} isAdmin={isAdmin}/></Modal>
+      <Modal show={showWaAdd} onClose={()=>{setShowWaAdd(false);setWaPhone("");}} width={480}>
+        <div style={{ padding:28 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+            <div style={{ fontWeight:900, fontSize:18, color:"#0f172a", fontFamily:"'Sora',sans-serif" }}>💬 Quick Add WhatsApp Lead</div>
+            <button onClick={()=>{setShowWaAdd(false);setWaPhone("");}} style={{ background:"none", border:"none", fontSize:20, cursor:"pointer", color:"#94a3b8" }}>✕</button>
+          </div>
+          <div style={{ fontSize:13, color:"#64748b", marginBottom:22 }}>Paste the WhatsApp number from your phone — the lead form will open pre-filled.</div>
+
+          {/* Step indicator */}
+          <div style={{ display:"flex", gap:0, marginBottom:24 }}>
+            {["1. Copy number from WhatsApp","2. Paste here","3. Lead form opens"].map((s,i)=>(
+              <div key={i} style={{ flex:1, textAlign:"center" }}>
+                <div style={{ width:28, height:28, borderRadius:"50%", background: i===1?"#25d366":"#e9ecf3", color: i===1?"#fff":"#94a3b8", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:12, margin:"0 auto 6px" }}>{i+1}</div>
+                <div style={{ fontSize:10, color: i===1?"#25d366":"#94a3b8", fontWeight:600, lineHeight:1.3 }}>{s}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ background:"#f0fdf4", border:"1.5px solid #86efac", borderRadius:12, padding:16, marginBottom:20 }}>
+            <div style={{ fontSize:11, fontWeight:700, color:"#166534", marginBottom:8, letterSpacing:.4 }}>📱 WHATSAPP NUMBER</div>
+            <input
+              value={waPhone}
+              onChange={e=>setWaPhone(e.target.value)}
+              placeholder="+971501234567"
+              autoFocus
+              style={{ width:"100%", border:"1.5px solid #86efac", borderRadius:8, padding:"10px 14px", fontSize:16, fontFamily:"inherit", outline:"none", background:"#fff", boxSizing:"border-box", fontWeight:700, color:"#0f172a" }}
+            />
+            <div style={{ fontSize:11, color:"#64748b", marginTop:6 }}>Include country code e.g. +971 for UAE, +966 for KSA, +20 for Egypt</div>
+          </div>
+
+          {/* Campaign selector */}
+          <div style={{ marginBottom:20 }}>
+            <div style={{ fontSize:11, fontWeight:700, color:"#64748b", marginBottom:8, letterSpacing:.4 }}>📣 WHICH CAMPAIGN IS THIS FROM?</div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+              {["Ramadan Promo","Spring Sale","KSA Launch","Egypt Campaign","April Awareness","Other"].map(c=>(
+                <button key={c} id={`camp_${c}`} onClick={e=>{
+                  document.querySelectorAll("[id^='camp_']").forEach(b=>{ b.style.background="#fafbfc"; b.style.border="1.5px solid #e2e8f0"; b.style.color="#64748b"; });
+                  e.currentTarget.style.background="#eff6ff"; e.currentTarget.style.border="1.5px solid #6366f1"; e.currentTarget.style.color="#6366f1";
+                  e.currentTarget.dataset.selected="true";
+                }} style={{ padding:"8px 10px", borderRadius:8, border:"1.5px solid #e2e8f0", background:"#fafbfc", cursor:"pointer", fontWeight:600, fontSize:12, fontFamily:"inherit", color:"#64748b", textAlign:"left" }}>
+                  {c}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button
+            onClick={()=>{
+              if(!waPhone.trim()) return;
+              const now = new Date();
+              const selectedCamp = [...document.querySelectorAll("[id^='camp_']")].find(b=>b.dataset.selected==="true");
+              const campaign = selectedCamp?.textContent || "";
+              const prefilledEmpty = {
+                ...EMPTY,
+                phone: waPhone.trim(),
+                whatsappNumber: waPhone.trim(),
+                adSource: "Digital Leads",
+                adCampaign: campaign,
+                dateReceived: todayStr(),
+                timeReceived: now.toTimeString().slice(0,5),
+                disposition: "New",
+                agent: agentName,
+              };
+              setShowWaAdd(false);
+              setWaPhone("");
+              setShowAdd(true);
+              // store prefilled in sessionStorage to pass to form
+              sessionStorage.setItem("wa_prefill", JSON.stringify(prefilledEmpty));
+              window.__waPrefill = prefilledEmpty;
+            }}
+            disabled={!waPhone.trim()}
+            style={{ width:"100%", padding:"12px", borderRadius:10, border:"none", background: waPhone.trim()?"#25d366":"#e2e8f0", color: waPhone.trim()?"#fff":"#94a3b8", cursor: waPhone.trim()?"pointer":"not-allowed", fontWeight:800, fontSize:15, fontFamily:"inherit", display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
+            💬 Open Lead Form →
+          </button>
+
+          <div style={{ marginTop:16, padding:12, background:"#f8f9ff", borderRadius:10, fontSize:12, color:"#64748b" }}>
+            <div style={{ fontWeight:700, color:"#0f172a", marginBottom:4 }}>💡 How to use on mobile:</div>
+            <div>1. Open WhatsApp Business → tap on the message</div>
+            <div>2. Copy the sender's number</div>
+            <div>3. Open LeadFlow → tap <strong>WhatsApp Lead</strong></div>
+            <div>4. Paste number → select campaign → tap Open</div>
+            <div>5. Fill name & details → Save ✅</div>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal show={showAdd} onClose={()=>setShowAdd(false)} width={700}>
+        <LeadForm
+          initial={window.__waPrefill || EMPTY}
+          onSave={form=>{ window.__waPrefill=null; add(form); }}
+          onCancel={()=>{ window.__waPrefill=null; setShowAdd(false); }}
+          title="➕ Add New Lead"
+          saving={saving}
+          agentName={agentName}
+          isAdmin={isAdmin}
+        />
+      </Modal>
       <Modal show={!!editLead} onClose={()=>setEditLead(null)} width={700}>{editLead&&<LeadForm initial={editLead} onSave={f=>upd(editLead.id,f)} onCancel={()=>setEditLead(null)} title="✏️ Edit Lead" saving={saving} agentName={agentName} isAdmin={isAdmin}/>}</Modal>
       <Modal show={!!dispLead} onClose={()=>setDispLead(null)} width={480}>{dispLead&&<DispPanel lead={dispLead} onUpdate={p=>upd(dispLead.id,p)} onClose={()=>setDispLead(null)} saving={saving}/>}</Modal>
       <Modal show={!!detail} onClose={()=>setDetail(null)} width={580}>
@@ -642,7 +741,7 @@ export default function App() {
           <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:4 }}>
             <a href={`https://wa.me/${(detail.whatsappNumber||detail.phone||"").replace(/\D/g,"")}`} target="_blank" rel="noreferrer" style={{ padding:"9px 15px", borderRadius:8, background:"#25d366", color:"#fff", fontWeight:800, fontSize:13, textDecoration:"none" }}>W Chat</a>
             <button onClick={()=>{setDispLead(detail);setDetail(null);}} style={{ padding:"9px 15px", borderRadius:8, border:"none", background:"#eef2ff", color:"#6366f1", cursor:"pointer", fontWeight:800, fontSize:13, fontFamily:"inherit" }}>Update Status</button>
-            <button onClick={()=>{setEditLead(detail);setDetail(null);}} style={{ padding:"9px 15px", borderRadius:8, border:"none", background:"#0f172a", color:"#fff", cursor:"pointer", fontWeight:800, fontSize:13, fontFamily:"inherit" }}>Edit Lead</button>
+            {isAdmin&&<button onClick={()=>{setEditLead(detail);setDetail(null);}} style={{ padding:"9px 15px", borderRadius:8, border:"none", background:"#0f172a", color:"#fff", cursor:"pointer", fontWeight:800, fontSize:13, fontFamily:"inherit" }}>Edit Lead</button>}
           </div>
         </div>)}
       </Modal>
