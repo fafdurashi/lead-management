@@ -339,6 +339,31 @@ function CallbacksPanel({ leads, onSelect }) {
   ):(<><Section title="🚨 OVERDUE" items={overdue} tag="Overdue" tagColor="#ef4444"/><Section title="⏰ DUE TODAY" items={dueToday} tag="Today" tagColor="#f59e0b"/><Section title="📅 UPCOMING" items={upcoming} tag="Scheduled" tagColor="#3b82f6"/></>);
 }
 
+// ── PRE-REGISTER AGENT FORM ───────────────────────────────────────────────────
+function PreRegisterAgent({ onSave }) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [saving, setSaving] = useState(false);
+  const inp = { width:"100%", border:"1.5px solid #e2e8f0", borderRadius:8, padding:"9px 12px", fontSize:13, fontFamily:"inherit", outline:"none", background:"#fafbfc", boxSizing:"border-box", color:"#0f172a" };
+  return (
+    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr auto", gap:10, alignItems:"end" }}>
+      <div>
+        <label style={{ fontSize:11, fontWeight:700, color:"#64748b", display:"block", marginBottom:4 }}>AGENT NAME (must match sheet exactly)</label>
+        <input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Sara Ahmed" style={inp}/>
+      </div>
+      <div>
+        <label style={{ fontSize:11, fontWeight:700, color:"#64748b", display:"block", marginBottom:4 }}>GMAIL (optional — for when they log in)</label>
+        <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="sara@gmail.com" type="email" style={inp}/>
+      </div>
+      <button onClick={async()=>{ if(!name.trim()) return; setSaving(true); await onSave(name.trim(), email.trim()); setName(""); setEmail(""); setSaving(false); }}
+        disabled={!name.trim()||saving}
+        style={{ padding:"9px 18px", borderRadius:8, border:"none", background:"linear-gradient(135deg,#6366f1,#3b82f6)", color:"#fff", cursor:name.trim()?"pointer":"not-allowed", fontWeight:800, fontSize:13, fontFamily:"inherit", whiteSpace:"nowrap", opacity:saving?0.7:1 }}>
+        {saving?"Adding…":"+ Add Agent"}
+      </button>
+    </div>
+  );
+}
+
 // ── MAIN APP ──────────────────────────────────────────────────────────────────
 export default function App() {
   const [user,setUser]           = useState(null);
@@ -857,7 +882,29 @@ export default function App() {
           <div>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
               <div style={{ fontWeight:900, fontSize:20, color:"#0f172a", fontFamily:"'Sora',sans-serif" }}>👥 Agent Management</div>
-              <div style={{ fontSize:13, color:"#64748b" }}>Agents auto-register when they first sign in with Gmail</div>
+            </div>
+
+            {/* ── Pre-register agent (for sheet matching) ── */}
+            <div style={{ background:"#fff", borderRadius:14, border:"1.5px solid #6366f1", padding:22, marginBottom:20 }}>
+              <div style={{ fontWeight:800, fontSize:15, marginBottom:4, fontFamily:"'Sora',sans-serif" }}>➕ Pre-register Agent</div>
+              <div style={{ fontSize:13, color:"#64748b", marginBottom:16 }}>Add an agent by name so leads from Google Sheet can be assigned to them before they log in. The name must match <strong>exactly</strong> what's in your sheet's "Assigned Agent" column.</div>
+              <PreRegisterAgent onSave={async(name,email)=>{
+                // Insert as pre-registered agent (no auth id needed)
+                const {error} = await supabase.from("agents").insert({
+                  id: crypto.randomUUID(),
+                  email: email||`${name.toLowerCase().replace(/\s+/g,"")}@placeholder.com`,
+                  full_name: name,
+                  avatar_url: "",
+                  role: "agent",
+                  is_active: true,
+                });
+                if(error) showToast("Agent already exists or error occurred","error");
+                else {
+                  const {data:allAgents}=await supabase.from("agents").select("*").eq("is_active",true).order("full_name");
+                  setAgents(allAgents||[]);
+                  showToast(`✅ Agent "${name}" pre-registered! Leads from sheet will now auto-assign.`);
+                }
+              }}/> 
             </div>
 
             {/* Agent cards */}
@@ -891,21 +938,30 @@ export default function App() {
                         </div>
                       ))}
                     </div>
-                    {/* Assign leads today */}
+                    {/* Assign leads today + delete */}
                     <div style={{ borderTop:"1px solid #f1f5f9", paddingTop:12 }}>
                       <div style={{ fontSize:11, color:"#64748b", marginBottom:8, fontWeight:600 }}>📋 Unassigned leads today: <strong style={{ color:"#6366f1" }}>{leads.filter(l=>!l.agent&&l.dateReceived===todayStr()).length}</strong></div>
-                      <button onClick={async()=>{
-                        // Assign all today's unassigned leads to this agent
-                        const unassigned = leads.filter(l=>(!l.agent||l.agent==="")&&l.dateReceived===todayStr());
-                        if(unassigned.length===0){ showToast("No unassigned leads for today","error"); return; }
-                        for(const lead of unassigned){
-                          await supabase.from("leads").update({agent:a.full_name}).eq("id",lead.id);
-                        }
-                        setLeads(ls=>ls.map(l=>(!l.agent||l.agent==="")&&l.dateReceived===todayStr()?{...l,agent:a.full_name}:l));
-                        showToast(`✅ ${unassigned.length} leads assigned to ${a.full_name}!`);
-                      }} style={{ width:"100%", padding:"8px", borderRadius:8, border:"none", background:"linear-gradient(135deg,#6366f1,#3b82f6)", color:"#fff", cursor:"pointer", fontWeight:700, fontSize:12, fontFamily:"inherit" }}>
-                        Assign Today's Leads →
-                      </button>
+                      <div style={{ display:"flex", gap:8 }}>
+                        <button onClick={async()=>{
+                          const unassigned = leads.filter(l=>(!l.agent||l.agent==="")&&l.dateReceived===todayStr());
+                          if(unassigned.length===0){ showToast("No unassigned leads for today","error"); return; }
+                          for(const lead of unassigned){
+                            await supabase.from("leads").update({agent:a.full_name}).eq("id",lead.id);
+                          }
+                          setLeads(ls=>ls.map(l=>(!l.agent||l.agent==="")&&l.dateReceived===todayStr()?{...l,agent:a.full_name}:l));
+                          showToast(`✅ ${unassigned.length} leads assigned to ${a.full_name}!`);
+                        }} style={{ flex:1, padding:"8px", borderRadius:8, border:"none", background:"linear-gradient(135deg,#6366f1,#3b82f6)", color:"#fff", cursor:"pointer", fontWeight:700, fontSize:12, fontFamily:"inherit" }}>
+                          Assign Today's Leads →
+                        </button>
+                        <button onClick={async()=>{
+                          if(!window.confirm(`Remove ${a.full_name} from agents?`)) return;
+                          await supabase.from("agents").delete().eq("id",a.id);
+                          setAgents(ls=>ls.filter(x=>x.id!==a.id));
+                          showToast(`🗑️ ${a.full_name} removed`);
+                        }} style={{ padding:"8px 12px", borderRadius:8, border:"none", background:"#fef2f2", color:"#ef4444", cursor:"pointer", fontWeight:700, fontSize:12, fontFamily:"inherit" }}>
+                          Remove
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
