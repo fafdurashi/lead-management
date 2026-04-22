@@ -1,17 +1,97 @@
 /* eslint-disable */
 import { useState, useEffect, useMemo } from "react";
 
-const AD_SOURCES = ["Facebook", "Instagram", "WhatsApp Click-to-Chat"];
+// ── Supabase config ───────────────────────────────────────────────────────────
+const SUPABASE_URL = "https://mswsvjaortcotuytlvdq.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1zd3N2amFvcnRjb3R1eXRsdmRxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4Mzg3NjgsImV4cCI6MjA5MjQxNDc2OH0.9FxvfwGOW1ae6-EomRMhHMfVUY5aCfeyZHMDXgrCAyc";
+const HEADERS = { "Content-Type": "application/json", "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` };
+
+const db = {
+  async getAll() {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/leads?select=*&order=created_at.desc`, { headers: HEADERS });
+    return r.json();
+  },
+  async insert(lead) {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/leads`, { method: "POST", headers: { ...HEADERS, "Prefer": "return=representation" }, body: JSON.stringify(toDb(lead)) });
+    const data = await r.json();
+    return data[0];
+  },
+  async update(id, patch) {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/leads?id=eq.${id}`, { method: "PATCH", headers: { ...HEADERS, "Prefer": "return=representation" }, body: JSON.stringify(toDb(patch)) });
+    const data = await r.json();
+    return data[0];
+  },
+  async delete(id) {
+    await fetch(`${SUPABASE_URL}/rest/v1/leads?id=eq.${id}`, { method: "DELETE", headers: HEADERS });
+  },
+};
+
+// map camelCase ↔ snake_case
+const toDb = o => {
+  const m = {};
+  if (o.serialNo       !== undefined) m.serial_no       = o.serialNo;
+  if (o.dateReceived   !== undefined) m.date_received   = o.dateReceived   || null;
+  if (o.timeReceived   !== undefined) m.time_received   = o.timeReceived;
+  if (o.leadName       !== undefined) m.lead_name       = o.leadName;
+  if (o.phone          !== undefined) m.phone           = o.phone;
+  if (o.whatsappNumber !== undefined) m.whatsapp_number = o.whatsappNumber;
+  if (o.email          !== undefined) m.email           = o.email;
+  if (o.gender         !== undefined) m.gender          = o.gender;
+  if (o.city           !== undefined) m.city            = o.city;
+  if (o.language       !== undefined) m.language        = o.language;
+  if (o.adSource       !== undefined) m.ad_source       = o.adSource;
+  if (o.adCampaign     !== undefined) m.ad_campaign     = o.adCampaign;
+  if (o.adSet          !== undefined) m.ad_set          = o.adSet;
+  if (o.product        !== undefined) m.product         = o.product;
+  if (o.disposition    !== undefined) m.disposition     = o.disposition;
+  if (o.callbackDate   !== undefined) m.callback_date   = o.callbackDate   || null;
+  if (o.callbackTime   !== undefined) m.callback_time   = o.callbackTime;
+  if (o.agent          !== undefined) m.agent           = o.agent;
+  if (o.callNotes      !== undefined) m.call_notes      = o.callNotes;
+  if (o.attemptCount   !== undefined) m.attempt_count   = o.attemptCount;
+  if (o.lastCallDate   !== undefined) m.last_call_date  = o.lastCallDate   || null;
+  if (o.sheetLink      !== undefined) m.sheet_link      = o.sheetLink;
+  return m;
+};
+
+const fromDb = o => ({
+  id:             o.id,
+  serialNo:       o.serial_no       || "",
+  dateReceived:   o.date_received   || "",
+  timeReceived:   o.time_received   || "",
+  leadName:       o.lead_name       || "",
+  phone:          o.phone           || "",
+  whatsappNumber: o.whatsapp_number || "",
+  email:          o.email           || "",
+  gender:         o.gender          || "Not Specified",
+  city:           o.city            || "",
+  language:       o.language        || "Arabic",
+  adSource:       o.ad_source       || "Facebook",
+  adCampaign:     o.ad_campaign     || "",
+  adSet:          o.ad_set          || "",
+  product:        o.product         || "",
+  disposition:    o.disposition     || "New",
+  callbackDate:   o.callback_date   || "",
+  callbackTime:   o.callback_time   || "",
+  agent:          o.agent           || "",
+  callNotes:      o.call_notes      || "",
+  attemptCount:   o.attempt_count   || 0,
+  lastCallDate:   o.last_call_date  || "",
+  sheetLink:      o.sheet_link      || "",
+});
+
+// ── constants ─────────────────────────────────────────────────────────────────
+const AD_SOURCES  = ["Facebook", "Instagram", "WhatsApp Click-to-Chat"];
 const DISPOSITIONS = [
-  { label: "New",            color: "#6366f1", bg: "#eef2ff", icon: "🆕" },
-  { label: "Contacted",      color: "#f59e0b", bg: "#fffbeb", icon: "📞" },
-  { label: "Interested",     color: "#10b981", bg: "#ecfdf5", icon: "✅" },
-  { label: "Not Interested", color: "#ef4444", bg: "#fef2f2", icon: "❌" },
-  { label: "Callback",       color: "#3b82f6", bg: "#eff6ff", icon: "🔁" },
-  { label: "No Answer",      color: "#8b5cf6", bg: "#f5f3ff", icon: "📵" },
-  { label: "Wrong Number",   color: "#64748b", bg: "#f8fafc", icon: "🚫" },
-  { label: "Converted",      color: "#059669", bg: "#d1fae5", icon: "🏆" },
-  { label: "Dropped",        color: "#dc2626", bg: "#fee2e2", icon: "🗑️" },
+  { label:"New",            color:"#6366f1", bg:"#eef2ff", icon:"🆕" },
+  { label:"Contacted",      color:"#f59e0b", bg:"#fffbeb", icon:"📞" },
+  { label:"Interested",     color:"#10b981", bg:"#ecfdf5", icon:"✅" },
+  { label:"Not Interested", color:"#ef4444", bg:"#fef2f2", icon:"❌" },
+  { label:"Callback",       color:"#3b82f6", bg:"#eff6ff", icon:"🔁" },
+  { label:"No Answer",      color:"#8b5cf6", bg:"#f5f3ff", icon:"📵" },
+  { label:"Wrong Number",   color:"#64748b", bg:"#f8fafc", icon:"🚫" },
+  { label:"Converted",      color:"#059669", bg:"#d1fae5", icon:"🏆" },
+  { label:"Dropped",        color:"#dc2626", bg:"#fee2e2", icon:"🗑️" },
 ];
 const AGENTS    = ["Rania K.", "Omar S.", "Lina M.", "Tariq H.", "Sara A."];
 const PRODUCTS  = ["Product A", "Product B", "Product C", "Service Plan X", "Service Plan Y"];
@@ -19,25 +99,14 @@ const LANGUAGES = ["Arabic", "English", "French", "Urdu", "Hindi", "Other"];
 const GENDERS   = ["Male", "Female", "Not Specified"];
 const CITIES    = ["Dubai","Abu Dhabi","Sharjah","Riyadh","Jeddah","Cairo","Amman","Kuwait City","Doha","Other"];
 
-const INIT = [
-  { id:1, serialNo:"LD-001", dateReceived:"2026-04-15", timeReceived:"09:30", leadName:"Ahmed Al-Rashidi", phone:"+971501234567", whatsappNumber:"+971501234567", email:"ahmed@email.com", gender:"Male", city:"Dubai", language:"Arabic", adSource:"Facebook", adCampaign:"Ramadan Promo", adSet:"UAE Males 25-40", product:"Product A", disposition:"Interested", callbackDate:"", callbackTime:"", agent:"Rania K.", callNotes:"Very interested, needs pricing details", attemptCount:2, lastCallDate:"2026-04-20", sheetLink:"" },
-  { id:2, serialNo:"LD-002", dateReceived:"2026-04-16", timeReceived:"11:15", leadName:"Fatima Hassan",    phone:"+971509876543", whatsappNumber:"+971509876543", email:"", gender:"Female", city:"Abu Dhabi", language:"Arabic", adSource:"Instagram", adCampaign:"Spring Sale", adSet:"UAE Females 18-35", product:"Product B", disposition:"Callback", callbackDate:"2026-04-22", callbackTime:"14:00", agent:"Omar S.", callNotes:"Call back after 2pm, asked for brochure", attemptCount:1, lastCallDate:"2026-04-16", sheetLink:"" },
-  { id:3, serialNo:"LD-003", dateReceived:"2026-04-17", timeReceived:"14:00", leadName:"Khalid Mansoor",   phone:"+966551234567", whatsappNumber:"+966551234567", email:"khalid.m@gmail.com", gender:"Male", city:"Riyadh", language:"Arabic", adSource:"WhatsApp Click-to-Chat", adCampaign:"KSA Launch", adSet:"KSA All", product:"Service Plan X", disposition:"No Answer", callbackDate:"2026-04-21", callbackTime:"10:00", agent:"Lina M.", callNotes:"3 attempts, no pickup", attemptCount:3, lastCallDate:"2026-04-19", sheetLink:"" },
-  { id:4, serialNo:"LD-004", dateReceived:"2026-04-18", timeReceived:"16:45", leadName:"Sara Younis",      phone:"+971557654321", whatsappNumber:"+971557654321", email:"sara.y@outlook.com", gender:"Female", city:"Sharjah", language:"English", adSource:"Facebook", adCampaign:"Ramadan Promo", adSet:"UAE Females 25-45", product:"Product C", disposition:"Converted", callbackDate:"", callbackTime:"", agent:"Tariq H.", callNotes:"Sold! Package confirmed, payment done.", attemptCount:4, lastCallDate:"2026-04-20", sheetLink:"" },
-  { id:5, serialNo:"LD-005", dateReceived:"2026-04-19", timeReceived:"10:20", leadName:"Mohamed Abdulla",  phone:"+971502223344", whatsappNumber:"+971502223344", email:"", gender:"Male", city:"Dubai", language:"Arabic", adSource:"Instagram", adCampaign:"April Awareness", adSet:"GCC Males 30-50", product:"Service Plan Y", disposition:"Not Interested", callbackDate:"", callbackTime:"", agent:"Sara A.", callNotes:"Already using competitor", attemptCount:2, lastCallDate:"2026-04-19", sheetLink:"" },
-  { id:6, serialNo:"LD-006", dateReceived:"2026-04-20", timeReceived:"08:55", leadName:"Noor Al-Zahra",    phone:"+971558889900", whatsappNumber:"+971558889900", email:"noor.z@email.com", gender:"Female", city:"Dubai", language:"Arabic", adSource:"Facebook", adCampaign:"Ramadan Promo", adSet:"UAE Females 18-35", product:"Product A", disposition:"New", callbackDate:"", callbackTime:"", agent:"Rania K.", callNotes:"", attemptCount:0, lastCallDate:"", sheetLink:"" },
-  { id:7, serialNo:"LD-007", dateReceived:"2026-04-20", timeReceived:"13:10", leadName:"Youssef Karim",    phone:"+20101234567",  whatsappNumber:"+20101234567",  email:"ykarim@email.com", gender:"Male", city:"Cairo", language:"Arabic", adSource:"WhatsApp Click-to-Chat", adCampaign:"Egypt Campaign", adSet:"Cairo Males 25-45", product:"Product B", disposition:"Contacted", callbackDate:"", callbackTime:"", agent:"Omar S.", callNotes:"Spoke briefly, sending WhatsApp info", attemptCount:1, lastCallDate:"2026-04-20", sheetLink:"" },
-];
-
 const EMPTY = { serialNo:"", dateReceived:new Date().toISOString().split("T")[0], timeReceived:"", leadName:"", phone:"", whatsappNumber:"", email:"", gender:"Not Specified", city:"", language:"Arabic", adSource:"Facebook", adCampaign:"", adSet:"", product:"", disposition:"New", callbackDate:"", callbackTime:"", agent:AGENTS[0], callNotes:"", attemptCount:0, lastCallDate:"", sheetLink:"" };
 
-const todayStr = () => new Date().toISOString().split("T")[0];
+const todayStr  = () => new Date().toISOString().split("T")[0];
 const isOverdue  = l => l.disposition==="Callback" && l.callbackDate && l.callbackDate < todayStr();
 const isDueToday = l => l.disposition==="Callback" && l.callbackDate && l.callbackDate === todayStr();
-const getD = label => DISPOSITIONS.find(d => d.label === label) || DISPOSITIONS[0];
+const getD       = label => DISPOSITIONS.find(d => d.label===label) || DISPOSITIONS[0];
 
-// ── tiny components ──────────────────────────────────────────────────────────
-
+// ── tiny UI components ────────────────────────────────────────────────────────
 function Badge({ label }) {
   const d = getD(label);
   return <span style={{ display:"inline-flex", alignItems:"center", gap:4, background:d.bg, color:d.color, border:`1px solid ${d.color}33`, borderRadius:20, padding:"2px 9px", fontSize:11, fontWeight:700, whiteSpace:"nowrap" }}>{d.icon} {label}</span>;
@@ -51,8 +120,8 @@ function SrcBadge({ source }) {
 
 function Ava({ name, size=30 }) {
   const pal = ["#6366f1","#f59e0b","#10b981","#3b82f6","#ec4899","#8b5cf6"];
-  const c = pal[name.charCodeAt(0)%pal.length];
-  return <div style={{ width:size, height:size, borderRadius:"50%", background:c, color:"#fff", display:"flex", alignItems:"center", justifyContent:"center", fontSize:size*0.36, fontWeight:800, flexShrink:0 }}>{name.split(" ").map(n=>n[0]).join("").slice(0,2)}</div>;
+  const c = pal[(name||"A").charCodeAt(0)%pal.length];
+  return <div style={{ width:size, height:size, borderRadius:"50%", background:c, color:"#fff", display:"flex", alignItems:"center", justifyContent:"center", fontSize:size*0.36, fontWeight:800, flexShrink:0 }}>{(name||"?").split(" ").map(n=>n[0]).join("").slice(0,2)}</div>;
 }
 
 function Stat({ icon, label, value, sub, accent }) {
@@ -60,7 +129,7 @@ function Stat({ icon, label, value, sub, accent }) {
     <div style={{ background:"#fff", borderRadius:13, padding:"16px 18px", flex:1, minWidth:120, border:"1px solid #e9ecf3", position:"relative", overflow:"hidden" }}>
       <div style={{ position:"absolute", top:0, left:0, width:3, height:"100%", background:accent }} />
       <div style={{ fontSize:18, marginBottom:5 }}>{icon}</div>
-      <div style={{ fontSize:10, color:"#94a3b8", fontWeight:700, letterSpacing:0.5 }}>{label}</div>
+      <div style={{ fontSize:10, color:"#94a3b8", fontWeight:700, letterSpacing:.5 }}>{label}</div>
       <div style={{ fontSize:22, fontWeight:900, color:"#0f172a", fontFamily:"'Sora',sans-serif", lineHeight:1.1 }}>{value}</div>
       {sub && <div style={{ fontSize:11, color:"#64748b", marginTop:2 }}>{sub}</div>}
     </div>
@@ -79,14 +148,23 @@ function Modal({ show, onClose, width=640, children }) {
   );
 }
 
-// ── lead form ────────────────────────────────────────────────────────────────
+function Toast({ msg, type }) {
+  if (!msg) return null;
+  const bg = type==="error" ? "#ef4444" : "#10b981";
+  return <div style={{ position:"fixed", bottom:24, right:24, background:bg, color:"#fff", borderRadius:10, padding:"12px 20px", fontWeight:700, fontSize:14, zIndex:9999, boxShadow:"0 8px 24px rgba(0,0,0,.2)", animation:"mIn .2s ease" }}>{msg}</div>;
+}
 
-function LeadForm({ initial, onSave, onCancel, title }) {
+// ── lead form ─────────────────────────────────────────────────────────────────
+function LeadForm({ initial, onSave, onCancel, title, saving }) {
   const [f, setF] = useState(initial);
   const s = (k,v) => setF(x=>({...x,[k]:v}));
   const inp = { width:"100%", border:"1.5px solid #e2e8f0", borderRadius:8, padding:"8px 11px", fontSize:13, fontFamily:"inherit", outline:"none", background:"#fafbfc", boxSizing:"border-box", color:"#0f172a" };
-  const Lbl = ({ text }) => <label style={{ fontSize:11, fontWeight:700, color:"#64748b", display:"block", marginBottom:3, letterSpacing:.4 }}>{text}</label>;
-  const F = ({ label, span, children }) => <div style={{ gridColumn:span||"auto" }}><Lbl text={label}/>{children}</div>;
+  const F = ({ label, span, children }) => (
+    <div style={{ gridColumn:span||"auto" }}>
+      <label style={{ fontSize:11, fontWeight:700, color:"#64748b", display:"block", marginBottom:3, letterSpacing:.4 }}>{label}</label>
+      {children}
+    </div>
+  );
 
   return (
     <div style={{ padding:26 }}>
@@ -107,7 +185,7 @@ function LeadForm({ initial, onSave, onCancel, title }) {
         <F label="Lead Name *" span="1/-1"><input value={f.leadName} onChange={e=>s("leadName",e.target.value)} style={inp} placeholder="Full name"/></F>
         <F label="Phone Number"><input value={f.phone} onChange={e=>s("phone",e.target.value)} style={inp} placeholder="+971501234567"/></F>
         <F label="WhatsApp Number"><input value={f.whatsappNumber} onChange={e=>s("whatsappNumber",e.target.value)} style={inp} placeholder="+971501234567"/></F>
-        <F label="Email"><input type="email" value={f.email} onChange={e=>s("email",e.target.value)} style={inp} placeholder="email@example.com"/></F>
+        <F label="Email"><input type="email" value={f.email} onChange={e=>s("email",e.target.value)} style={inp}/></F>
         <F label="Gender"><select value={f.gender} onChange={e=>s("gender",e.target.value)} style={{...inp,cursor:"pointer"}}>{GENDERS.map(g=><option key={g}>{g}</option>)}</select></F>
         <F label="City"><select value={f.city} onChange={e=>s("city",e.target.value)} style={{...inp,cursor:"pointer"}}><option value="">Select city…</option>{CITIES.map(c=><option key={c}>{c}</option>)}</select></F>
         <F label="Language"><select value={f.language} onChange={e=>s("language",e.target.value)} style={{...inp,cursor:"pointer"}}>{LANGUAGES.map(l=><option key={l}>{l}</option>)}</select></F>
@@ -140,26 +218,28 @@ function LeadForm({ initial, onSave, onCancel, title }) {
         </div>
       )}
 
-      <F label="Call Notes">
+      <div>
+        <label style={{ fontSize:11, fontWeight:700, color:"#64748b", display:"block", marginBottom:3, letterSpacing:.4 }}>Call Notes</label>
         <textarea value={f.callNotes} onChange={e=>s("callNotes",e.target.value)} rows={3} style={{...inp,resize:"vertical"}} placeholder="Notes from the call…"/>
-      </F>
+      </div>
 
       <div style={{ display:"flex", gap:10, marginTop:20, justifyContent:"flex-end" }}>
-        <button onClick={onCancel} style={{ padding:"9px 18px", borderRadius:8, border:"1.5px solid #e2e8f0", background:"#fff", cursor:"pointer", fontWeight:700, fontSize:13, color:"#64748b" }}>Cancel</button>
-        <button onClick={()=>f.leadName&&onSave(f)} style={{ padding:"9px 22px", borderRadius:8, border:"none", background:"linear-gradient(135deg,#6366f1,#3b82f6)", cursor:"pointer", fontWeight:800, fontSize:13, color:"#fff", boxShadow:"0 4px 14px rgba(99,102,241,.35)" }}>Save Lead</button>
+        <button onClick={onCancel} style={{ padding:"9px 18px", borderRadius:8, border:"1.5px solid #e2e8f0", background:"#fff", cursor:"pointer", fontWeight:700, fontSize:13, color:"#64748b", fontFamily:"inherit" }}>Cancel</button>
+        <button onClick={()=>f.leadName&&onSave(f)} disabled={saving} style={{ padding:"9px 22px", borderRadius:8, border:"none", background:"linear-gradient(135deg,#6366f1,#3b82f6)", cursor:"pointer", fontWeight:800, fontSize:13, color:"#fff", fontFamily:"inherit", boxShadow:"0 4px 14px rgba(99,102,241,.35)", opacity:saving?0.7:1 }}>
+          {saving ? "Saving…" : "Save Lead"}
+        </button>
       </div>
     </div>
   );
 }
 
 // ── disposition quick panel ───────────────────────────────────────────────────
-
-function DispPanel({ lead, onUpdate, onClose }) {
-  const [disp, setDisp]       = useState(lead.disposition);
-  const [notes, setNotes]     = useState(lead.callNotes);
-  const [cbDate, setCbDate]   = useState(lead.callbackDate);
-  const [cbTime, setCbTime]   = useState(lead.callbackTime);
-  const [tries, setTries]     = useState(lead.attemptCount);
+function DispPanel({ lead, onUpdate, onClose, saving }) {
+  const [disp, setDisp]     = useState(lead.disposition);
+  const [notes, setNotes]   = useState(lead.callNotes);
+  const [cbDate, setCbDate] = useState(lead.callbackDate);
+  const [cbTime, setCbTime] = useState(lead.callbackTime);
+  const [tries, setTries]   = useState(lead.attemptCount);
   const needCb = disp==="Callback"||disp==="No Answer";
   const inp = { width:"100%", border:"1.5px solid #e2e8f0", borderRadius:8, padding:"8px 11px", fontSize:13, fontFamily:"inherit", outline:"none", background:"#fff", boxSizing:"border-box" };
 
@@ -176,7 +256,7 @@ function DispPanel({ lead, onUpdate, onClose }) {
       <div style={{ fontSize:10, fontWeight:700, color:"#64748b", marginBottom:8, letterSpacing:.4 }}>SELECT DISPOSITION</div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:7, marginBottom:16 }}>
         {DISPOSITIONS.map(d=>(
-          <button key={d.label} onClick={()=>setDisp(d.label)} style={{ padding:"8px 5px", borderRadius:8, cursor:"pointer", fontWeight:700, fontSize:11, fontFamily:"inherit", border:disp===d.label?`2px solid ${d.color}`:"1.5px solid #e2e8f0", background:disp===d.label?d.bg:"#fafbfc", color:disp===d.label?d.color:"#64748b", transition:"all .12s" }}>
+          <button key={d.label} onClick={()=>setDisp(d.label)} style={{ padding:"8px 5px", borderRadius:8, cursor:"pointer", fontWeight:700, fontSize:11, fontFamily:"inherit", border:disp===d.label?`2px solid ${d.color}`:"1.5px solid #e2e8f0", background:disp===d.label?d.bg:"#fafbfc", color:disp===d.label?d.color:"#64748b" }}>
             {d.icon} {d.label}
           </button>
         ))}
@@ -193,7 +273,7 @@ function DispPanel({ lead, onUpdate, onClose }) {
       )}
 
       <div style={{ marginBottom:14 }}>
-        <div style={{ fontSize:10, fontWeight:700, color:"#64748b", marginBottom:6, letterSpacing:.4 }}>CALL NOTES</div>
+        <div style={{ fontSize:10, fontWeight:700, color:"#64748b", marginBottom:6 }}>CALL NOTES</div>
         <textarea value={notes} onChange={e=>setNotes(e.target.value)} rows={3} style={{...inp,resize:"vertical"}} placeholder="What happened on this call?"/>
       </div>
 
@@ -205,22 +285,22 @@ function DispPanel({ lead, onUpdate, onClose }) {
       </div>
 
       <button onClick={()=>onUpdate({ disposition:disp, callNotes:notes, callbackDate:cbDate, callbackTime:cbTime, attemptCount:tries, lastCallDate:todayStr() })}
-        style={{ width:"100%", padding:12, borderRadius:10, border:"none", background:"linear-gradient(135deg,#6366f1,#3b82f6)", cursor:"pointer", fontWeight:800, fontSize:14, color:"#fff", fontFamily:"inherit", boxShadow:"0 4px 14px rgba(99,102,241,.35)" }}>
-        Save Update
+        disabled={saving}
+        style={{ width:"100%", padding:12, borderRadius:10, border:"none", background:"linear-gradient(135deg,#6366f1,#3b82f6)", cursor:"pointer", fontWeight:800, fontSize:14, color:"#fff", fontFamily:"inherit", opacity:saving?0.7:1 }}>
+        {saving ? "Saving…" : "Save Update"}
       </button>
     </div>
   );
 }
 
 // ── callbacks panel ───────────────────────────────────────────────────────────
-
 function CallbacksPanel({ leads, onSelect }) {
   const overdue  = leads.filter(isOverdue);
   const dueToday = leads.filter(isDueToday);
   const upcoming = leads.filter(l=>l.disposition==="Callback"&&l.callbackDate&&l.callbackDate>todayStr());
 
   const Row = ({ lead, tag, tagColor }) => (
-    <div onClick={()=>onSelect(lead)} style={{ display:"flex", alignItems:"center", gap:12, padding:"11px 14px", borderRadius:10, background:"#fff", border:"1px solid #e9ecf3", marginBottom:8, cursor:"pointer", transition:"box-shadow .12s" }}
+    <div onClick={()=>onSelect(lead)} style={{ display:"flex", alignItems:"center", gap:12, padding:"11px 14px", borderRadius:10, background:"#fff", border:"1px solid #e9ecf3", marginBottom:8, cursor:"pointer" }}
       onMouseEnter={e=>e.currentTarget.style.boxShadow="0 4px 14px rgba(0,0,0,.08)"}
       onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}>
       <Ava name={lead.leadName} size={36}/>
@@ -242,21 +322,23 @@ function CallbacksPanel({ leads, onSelect }) {
     </div>
   ) : null;
 
-  return overdue.length+dueToday.length+upcoming.length === 0 ? (
+  return overdue.length+dueToday.length+upcoming.length===0 ? (
     <div style={{ textAlign:"center", padding:48, color:"#94a3b8" }}><div style={{ fontSize:36, marginBottom:8 }}>✅</div><div style={{ fontWeight:600 }}>No callbacks scheduled</div></div>
   ) : (
     <>
-      <Section title="🚨 OVERDUE" items={overdue} tag="Overdue" tagColor="#ef4444"/>
-      <Section title="⏰ DUE TODAY" items={dueToday} tag="Today" tagColor="#f59e0b"/>
-      <Section title="📅 UPCOMING" items={upcoming} tag="Scheduled" tagColor="#3b82f6"/>
+      <Section title="🚨 OVERDUE"   items={overdue}  tag="Overdue"   tagColor="#ef4444"/>
+      <Section title="⏰ DUE TODAY" items={dueToday} tag="Today"     tagColor="#f59e0b"/>
+      <Section title="📅 UPCOMING"  items={upcoming} tag="Scheduled" tagColor="#3b82f6"/>
     </>
   );
 }
 
-// ── main ──────────────────────────────────────────────────────────────────────
-
+// ── main app ──────────────────────────────────────────────────────────────────
 export default function App() {
-  const [leads, setLeads]       = useState(INIT);
+  const [leads, setLeads]       = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [saving, setSaving]     = useState(false);
+  const [toast, setToast]       = useState(null);
   const [tab, setTab]           = useState("leads");
   const [search, setSearch]     = useState("");
   const [fDisp, setFDisp]       = useState("All");
@@ -269,7 +351,18 @@ export default function App() {
   const [dispLead, setDispLead] = useState(null);
   const [detail, setDetail]     = useState(null);
   const [delLead, setDelLead]   = useState(null);
-  const [nid, setNid]           = useState(INIT.length+1);
+
+  const showToast = (msg, type="success") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  // load leads from Supabase on mount
+  useEffect(() => {
+    db.getAll()
+      .then(data => { setLeads((data||[]).map(fromDb)); setLoading(false); })
+      .catch(() => { showToast("Failed to load leads", "error"); setLoading(false); });
+  }, []);
 
   const urgentCbs = useMemo(()=>leads.filter(l=>isOverdue(l)||isDueToday(l)).length,[leads]);
 
@@ -286,16 +379,40 @@ export default function App() {
     return (b.dateReceived+b.timeReceived).localeCompare(a.dateReceived+a.timeReceived);
   }),[leads,search,fDisp,fSrc,fAgent,fProd,sortBy]);
 
-  const add = form=>{
-    setLeads(ls=>[...ls,{...form,id:nid,serialNo:form.serialNo||`LD-${String(nid).padStart(3,"0")}`}]);
-    setNid(n=>n+1); setShowAdd(false);
+  const add = async form => {
+    setSaving(true);
+    try {
+      const saved = await db.insert(form);
+      setLeads(ls=>[fromDb(saved), ...ls]);
+      setShowAdd(false);
+      showToast("✅ Lead added successfully!");
+    } catch { showToast("Failed to add lead", "error"); }
+    setSaving(false);
   };
-  const upd = (id,patch)=>{
-    setLeads(ls=>ls.map(l=>l.id===id?{...l,...patch}:l));
-    setDispLead(null); setEditLead(null);
-    if(detail?.id===id) setDetail(p=>({...p,...patch}));
+
+  const upd = async (id, patch) => {
+    setSaving(true);
+    try {
+      const saved = await db.update(id, patch);
+      const updated = fromDb(saved);
+      setLeads(ls=>ls.map(l=>l.id===id ? updated : l));
+      if(detail?.id===id) setDetail(updated);
+      setDispLead(null); setEditLead(null);
+      showToast("✅ Lead updated!");
+    } catch { showToast("Failed to update lead", "error"); }
+    setSaving(false);
   };
-  const del = id=>{ setLeads(ls=>ls.filter(l=>l.id!==id)); setDelLead(null); setDetail(null); };
+
+  const del = async id => {
+    setSaving(true);
+    try {
+      await db.delete(id);
+      setLeads(ls=>ls.filter(l=>l.id!==id));
+      setDelLead(null); setDetail(null);
+      showToast("🗑️ Lead deleted");
+    } catch { showToast("Failed to delete lead", "error"); }
+    setSaving(false);
+  };
 
   const total=leads.length;
   const fb=leads.filter(l=>l.adSource==="Facebook").length;
@@ -306,8 +423,8 @@ export default function App() {
   const cbs=leads.filter(l=>l.disposition==="Callback").length;
 
   const inp = { border:"1.5px solid #e2e8f0", borderRadius:8, padding:"8px 11px", fontSize:13, fontFamily:"inherit", background:"#fff", outline:"none", cursor:"pointer", color:"#0f172a" };
-  const navB = (id,lbl,badge)=>(
-    <button onClick={()=>setTab(id)} style={{ padding:"7px 14px", borderRadius:8, border:"none", cursor:"pointer", fontWeight:700, fontSize:13, fontFamily:"inherit", background:tab===id?"#fff":"transparent", color:tab===id?"#0f172a":"#94a3b8", boxShadow:tab===id?"0 1px 4px rgba(0,0,0,.1)":"none", display:"flex", alignItems:"center", gap:5, transition:"all .15s" }}>
+  const navB = (id,lbl,badge) => (
+    <button onClick={()=>setTab(id)} style={{ padding:"7px 14px", borderRadius:8, border:"none", cursor:"pointer", fontWeight:700, fontSize:13, fontFamily:"inherit", background:tab===id?"#fff":"transparent", color:tab===id?"#0f172a":"#94a3b8", boxShadow:tab===id?"0 1px 4px rgba(0,0,0,.1)":"none", display:"flex", alignItems:"center", gap:5 }}>
       {lbl}{badge>0&&<span style={{ background:"#ef4444", color:"#fff", borderRadius:10, padding:"1px 6px", fontSize:10, fontWeight:900 }}>{badge}</span>}
     </button>
   );
@@ -320,6 +437,7 @@ export default function App() {
         ::-webkit-scrollbar{width:5px;height:5px}
         ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px}
         @keyframes mIn{from{transform:scale(.94) translateY(12px);opacity:0}to{transform:scale(1) translateY(0);opacity:1}}
+        @keyframes spin{to{transform:rotate(360deg)}}
         input:focus,select:focus,textarea:focus{border-color:#6366f1!important;box-shadow:0 0 0 3px rgba(99,102,241,.1)}
         tbody tr:hover td{background:#f8f9ff!important}
       `}</style>
@@ -344,19 +462,28 @@ export default function App() {
       </div>
 
       <div style={{ maxWidth:1500, margin:"0 auto", padding:"20px 22px" }}>
+
         {/* stats */}
         <div style={{ display:"flex", gap:10, marginBottom:20, flexWrap:"wrap" }}>
-          <Stat icon="👥" label="TOTAL LEADS"  value={total} sub={`${filtered.length} shown`} accent="#6366f1"/>
-          <Stat icon="✅" label="INTERESTED"   value={intr}  sub="hot prospects"               accent="#10b981"/>
-          <Stat icon="🏆" label="CONVERTED"    value={conv}  sub={`${total?((conv/total)*100).toFixed(0):0}% rate`} accent="#059669"/>
-          <Stat icon="🔁" label="CALLBACKS"    value={cbs}   sub={`${urgentCbs} urgent`}       accent="#3b82f6"/>
-          <Stat icon="f"  label="FACEBOOK"     value={fb}    sub="leads"                       accent="#1877f2"/>
-          <Stat icon="◈"  label="INSTAGRAM"    value={ig}    sub="leads"                       accent="#c13584"/>
-          <Stat icon="W"  label="WHATSAPP"     value={wa}    sub="leads"                       accent="#25d366"/>
+          <Stat icon="👥" label="TOTAL LEADS" value={loading?"…":total} sub={`${filtered.length} shown`} accent="#6366f1"/>
+          <Stat icon="✅" label="INTERESTED"  value={loading?"…":intr}  sub="hot prospects"              accent="#10b981"/>
+          <Stat icon="🏆" label="CONVERTED"   value={loading?"…":conv}  sub={`${total?((conv/total)*100).toFixed(0):0}% rate`} accent="#059669"/>
+          <Stat icon="🔁" label="CALLBACKS"   value={loading?"…":cbs}   sub={`${urgentCbs} urgent`}      accent="#3b82f6"/>
+          <Stat icon="f"  label="FACEBOOK"    value={loading?"…":fb}    sub="leads"                      accent="#1877f2"/>
+          <Stat icon="◈"  label="INSTAGRAM"   value={loading?"…":ig}    sub="leads"                      accent="#c13584"/>
+          <Stat icon="W"  label="WHATSAPP"    value={loading?"…":wa}    sub="leads"                      accent="#25d366"/>
         </div>
 
-        {/* ── LEADS ── */}
-        {tab==="leads" && (
+        {/* loading state */}
+        {loading && (
+          <div style={{ textAlign:"center", padding:60 }}>
+            <div style={{ width:40, height:40, border:"4px solid #e2e8f0", borderTop:"4px solid #6366f1", borderRadius:"50%", margin:"0 auto 16px", animation:"spin 0.8s linear infinite" }}/>
+            <div style={{ color:"#64748b", fontWeight:600 }}>Loading leads from database…</div>
+          </div>
+        )}
+
+        {/* ── LEADS TAB ── */}
+        {!loading && tab==="leads" && (
           <>
             <div style={{ display:"flex", gap:8, marginBottom:14, flexWrap:"wrap" }}>
               <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍  Search name, phone, campaign…" style={{...inp,flex:1,minWidth:200,cursor:"text"}}/>
@@ -423,7 +550,7 @@ export default function App() {
                           <span style={{ fontWeight:800, fontSize:14, color:l.attemptCount>=4?"#ef4444":l.attemptCount>=2?"#f59e0b":"#0f172a" }}>{l.attemptCount}</span>
                         </td>
                         <td style={{ padding:"11px 12px", whiteSpace:"nowrap" }}>
-                          {l.callbackDate ? (
+                          {l.callbackDate?(
                             <div style={{ fontSize:11 }}>
                               <div style={{ fontWeight:700, color:ov?"#ef4444":dt?"#f59e0b":"#3b82f6" }}>{ov?"🚨 Overdue":dt?"⏰ Today":"📅 "+l.callbackDate}</div>
                               <div style={{ color:"#94a3b8" }}>{l.callbackTime}</div>
@@ -440,7 +567,7 @@ export default function App() {
                       </tr>
                     );
                   })}
-                  {filtered.length===0&&<tr><td colSpan={12} style={{ padding:44, textAlign:"center", color:"#94a3b8", fontStyle:"italic" }}>No leads match your filters</td></tr>}
+                  {filtered.length===0&&<tr><td colSpan={12} style={{ padding:44, textAlign:"center", color:"#94a3b8", fontStyle:"italic" }}>{leads.length===0?"No leads yet — add your first lead!":"No leads match your filters"}</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -448,19 +575,17 @@ export default function App() {
           </>
         )}
 
-        {/* ── CALLBACKS ── */}
-        {tab==="callbacks" && (
+        {/* ── CALLBACKS TAB ── */}
+        {!loading && tab==="callbacks" && (
           <div style={{ maxWidth:680 }}>
             <div style={{ fontWeight:900, fontSize:20, color:"#0f172a", fontFamily:"'Sora',sans-serif", marginBottom:18 }}>🔁 Callback Schedule</div>
             <CallbacksPanel leads={leads} onSelect={l=>setDispLead(l)}/>
           </div>
         )}
 
-        {/* ── ANALYTICS ── */}
-        {tab==="analytics" && (
+        {/* ── ANALYTICS TAB ── */}
+        {!loading && tab==="analytics" && (
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
-
-            {/* disposition */}
             <div style={{ background:"#fff", borderRadius:14, border:"1px solid #e9ecf3", padding:22 }}>
               <div style={{ fontWeight:800, fontSize:15, marginBottom:16, fontFamily:"'Sora',sans-serif" }}>Disposition Breakdown</div>
               {DISPOSITIONS.map(d=>{
@@ -470,20 +595,16 @@ export default function App() {
                   <div key={d.label} style={{ marginBottom:11 }}>
                     <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
                       <span style={{ fontSize:13, fontWeight:600, color:"#475569" }}>{d.icon} {d.label}</span>
-                      <div style={{ display:"flex", gap:10 }}>
-                        <span style={{ fontSize:12, color:"#94a3b8" }}>{n}</span>
-                        <span style={{ fontSize:12, fontWeight:800, color:d.color }}>{p.toFixed(0)}%</span>
-                      </div>
+                      <div style={{ display:"flex", gap:10 }}><span style={{ fontSize:12, color:"#94a3b8" }}>{n}</span><span style={{ fontSize:12, fontWeight:800, color:d.color }}>{p.toFixed(0)}%</span></div>
                     </div>
                     <div style={{ background:"#f1f5f9", borderRadius:6, height:7, overflow:"hidden" }}>
-                      <div style={{ height:"100%", width:`${p}%`, background:d.color, borderRadius:6, transition:"width .5s" }}/>
+                      <div style={{ height:"100%", width:`${p}%`, background:d.color, borderRadius:6 }}/>
                     </div>
                   </div>
                 ):null;
               })}
             </div>
 
-            {/* source */}
             <div style={{ background:"#fff", borderRadius:14, border:"1px solid #e9ecf3", padding:22 }}>
               <div style={{ fontWeight:800, fontSize:15, marginBottom:16, fontFamily:"'Sora',sans-serif" }}>Leads by Ad Platform</div>
               {[{src:"Facebook",n:fb,c:"#1877f2"},{src:"Instagram",n:ig,c:"#c13584"},{src:"WhatsApp Click-to-Chat",n:wa,c:"#25d366"}].map(({src,n,c})=>{
@@ -491,11 +612,11 @@ export default function App() {
                 return (
                   <div key={src} style={{ marginBottom:18 }}>
                     <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
-                      <span style={{ fontSize:13, fontWeight:700, color:"#0f172a" }}>{src==="WhatsApp Click-to-Chat"?"WhatsApp":src}</span>
+                      <span style={{ fontSize:13, fontWeight:700 }}>{src==="WhatsApp Click-to-Chat"?"WhatsApp":src}</span>
                       <span style={{ fontSize:13, fontWeight:800, color:c }}>{n} ({p.toFixed(0)}%)</span>
                     </div>
                     <div style={{ background:"#f1f5f9", borderRadius:8, height:10, overflow:"hidden" }}>
-                      <div style={{ height:"100%", width:`${p}%`, background:c, borderRadius:8, transition:"width .5s" }}/>
+                      <div style={{ height:"100%", width:`${p}%`, background:c, borderRadius:8 }}/>
                     </div>
                   </div>
                 );
@@ -513,11 +634,10 @@ export default function App() {
               </div>
             </div>
 
-            {/* agents */}
             <div style={{ background:"#fff", borderRadius:14, border:"1px solid #e9ecf3", padding:22 }}>
               <div style={{ fontWeight:800, fontSize:15, marginBottom:16, fontFamily:"'Sora',sans-serif" }}>Agent Performance</div>
               <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
-                <thead><tr style={{ borderBottom:"1px solid #f1f5f9" }}>{["Agent","Leads","Conv","Int","Rate"].map(h=><th key={h} style={{ padding:"5px 8px", textAlign:"left", fontSize:10, fontWeight:800, color:"#94a3b8", letterSpacing:.5 }}>{h}</th>)}</tr></thead>
+                <thead><tr style={{ borderBottom:"1px solid #f1f5f9" }}>{["Agent","Leads","Conv","Int","Rate"].map(h=><th key={h} style={{ padding:"5px 8px", textAlign:"left", fontSize:10, fontWeight:800, color:"#94a3b8" }}>{h}</th>)}</tr></thead>
                 <tbody>
                   {AGENTS.map(a=>{
                     const al=leads.filter(l=>l.agent===a);
@@ -537,13 +657,13 @@ export default function App() {
               </table>
             </div>
 
-            {/* campaigns */}
             <div style={{ background:"#fff", borderRadius:14, border:"1px solid #e9ecf3", padding:22 }}>
               <div style={{ fontWeight:800, fontSize:15, marginBottom:16, fontFamily:"'Sora',sans-serif" }}>Top Campaigns</div>
               {(()=>{
                 const m={};
                 leads.forEach(l=>{ if(l.adCampaign) m[l.adCampaign]=(m[l.adCampaign]||0)+1; });
-                return Object.entries(m).sort((a,b)=>b[1]-a[1]).map(([name,n])=>(
+                const entries=Object.entries(m).sort((a,b)=>b[1]-a[1]);
+                return entries.length===0?<div style={{ color:"#94a3b8", fontSize:13 }}>No campaign data yet</div>:entries.map(([name,n])=>(
                   <div key={name} style={{ marginBottom:11 }}>
                     <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
                       <span style={{ fontSize:13, fontWeight:600, color:"#475569" }}>{name}</span>
@@ -561,11 +681,17 @@ export default function App() {
       </div>
 
       {/* modals */}
-      <Modal show={showAdd} onClose={()=>setShowAdd(false)} width={700}><LeadForm initial={EMPTY} onSave={add} onCancel={()=>setShowAdd(false)} title="➕ Add New Lead"/></Modal>
-      <Modal show={!!editLead} onClose={()=>setEditLead(null)} width={700}>{editLead&&<LeadForm initial={editLead} onSave={f=>upd(editLead.id,f)} onCancel={()=>setEditLead(null)} title="✏️ Edit Lead"/>}</Modal>
-      <Modal show={!!dispLead} onClose={()=>setDispLead(null)} width={480}>{dispLead&&<DispPanel lead={dispLead} onUpdate={p=>upd(dispLead.id,p)} onClose={()=>setDispLead(null)}/>}</Modal>
+      <Modal show={showAdd} onClose={()=>setShowAdd(false)} width={700}>
+        <LeadForm initial={EMPTY} onSave={add} onCancel={()=>setShowAdd(false)} title="➕ Add New Lead" saving={saving}/>
+      </Modal>
+      <Modal show={!!editLead} onClose={()=>setEditLead(null)} width={700}>
+        {editLead&&<LeadForm initial={editLead} onSave={f=>upd(editLead.id,f)} onCancel={()=>setEditLead(null)} title="✏️ Edit Lead" saving={saving}/>}
+      </Modal>
+      <Modal show={!!dispLead} onClose={()=>setDispLead(null)} width={480}>
+        {dispLead&&<DispPanel lead={dispLead} onUpdate={p=>upd(dispLead.id,p)} onClose={()=>setDispLead(null)} saving={saving}/>}
+      </Modal>
 
-      {/* detail */}
+      {/* detail modal */}
       <Modal show={!!detail} onClose={()=>setDetail(null)} width={560}>
         {detail&&(
           <div style={{ padding:26 }}>
@@ -583,7 +709,7 @@ export default function App() {
               {[["📞 Phone",detail.phone],["💬 WhatsApp",detail.whatsappNumber],["📧 Email",detail.email||"—"],["🏙️ City",detail.city||"—"],["🗣️ Language",detail.language],["⚥ Gender",detail.gender],["📣 Campaign",detail.adCampaign||"—"],["👥 Ad Set",detail.adSet||"—"],["🛒 Product",detail.product||"—"],["👤 Agent",detail.agent],["📊 Attempts",detail.attemptCount],["📅 Last Call",detail.lastCallDate||"—"]].map(([k,v])=>(
                 <div key={k} style={{ background:"#f8f9ff", borderRadius:8, padding:"9px 12px" }}>
                   <div style={{ fontSize:10, color:"#94a3b8", fontWeight:700, marginBottom:1 }}>{k}</div>
-                  <div style={{ fontSize:13, fontWeight:700, color:"#0f172a" }}>{v}</div>
+                  <div style={{ fontSize:13, fontWeight:700, color:"#0f172a" }}>{String(v)}</div>
                 </div>
               ))}
             </div>
@@ -605,14 +731,17 @@ export default function App() {
           <div style={{ padding:32, textAlign:"center" }}>
             <div style={{ fontSize:42, marginBottom:12 }}>🗑️</div>
             <div style={{ fontWeight:900, fontSize:17, marginBottom:8, fontFamily:"'Sora',sans-serif" }}>Delete this lead?</div>
-            <div style={{ color:"#64748b", marginBottom:22, fontSize:14 }}>This will permanently remove <strong>{delLead.leadName}</strong>.</div>
+            <div style={{ color:"#64748b", marginBottom:22, fontSize:14 }}>This will permanently remove <strong>{delLead.leadName}</strong> from the database.</div>
             <div style={{ display:"flex", gap:10, justifyContent:"center" }}>
               <button onClick={()=>setDelLead(null)} style={{ padding:"9px 22px", borderRadius:8, border:"1.5px solid #e2e8f0", background:"#fff", cursor:"pointer", fontWeight:700, fontSize:13, fontFamily:"inherit", color:"#64748b" }}>Cancel</button>
-              <button onClick={()=>del(delLead.id)} style={{ padding:"9px 22px", borderRadius:8, border:"none", background:"#ef4444", color:"#fff", cursor:"pointer", fontWeight:800, fontSize:13, fontFamily:"inherit" }}>Delete</button>
+              <button onClick={()=>del(delLead.id)} disabled={saving} style={{ padding:"9px 22px", borderRadius:8, border:"none", background:"#ef4444", color:"#fff", cursor:"pointer", fontWeight:800, fontSize:13, fontFamily:"inherit", opacity:saving?0.7:1 }}>{saving?"Deleting…":"Delete"}</button>
             </div>
           </div>
         )}
       </Modal>
+
+      {/* toast */}
+      {toast && <Toast msg={toast.msg} type={toast.type}/>}
     </div>
   );
 }
