@@ -211,7 +211,7 @@ function LoginScreen() {
 }
 
 // ── LEAD FORM ─────────────────────────────────────────────────────────────────
-function LeadForm({ initial, onSave, onCancel, title, saving, agentName, isAdmin }) {
+function LeadForm({ initial, onSave, onCancel, title, saving, agentName, isAdmin, agents }) {
   const [f,setF] = useState(initial);
   const s=(k,v)=>setF(x=>({...x,[k]:v}));
   const inp={width:"100%",border:"1.5px solid #e2e8f0",borderRadius:8,padding:"8px 11px",fontSize:13,fontFamily:"inherit",outline:"none",background:"#fafbfc",boxSizing:"border-box",color:"#0f172a"};
@@ -249,7 +249,7 @@ function LeadForm({ initial, onSave, onCancel, title, saving, agentName, isAdmin
       <div style={{ fontSize:10, fontWeight:800, color:"#3b82f6", letterSpacing:1, marginBottom:10 }}>💼 SALES DETAILS</div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:16 }}>
         <F label="Product / Service"><select value={f.product} onChange={e=>s("product",e.target.value)} style={{...inp,cursor:"pointer"}}><option value="">Select…</option>{PRODUCTS.map(p=><option key={p}>{p}</option>)}</select></F>
-        <F label="Assigned Agent">{isAdmin?<input value={f.agent} onChange={e=>s("agent",e.target.value)} style={inp} placeholder="Agent name"/>:<input value={agentName} disabled style={{...inp,background:"#f1f5f9",color:"#64748b"}}/>}</F>
+        <F label="Assigned Agent">{isAdmin?<select value={f.agent} onChange={e=>s("agent",e.target.value)} style={{...inp,cursor:"pointer"}}><option value="">Select agent…</option>{(agents||[]).filter(a=>a.role!=="admin").map(a=><option key={a.id} value={a.full_name}>{a.full_name}</option>)}</select>:<input value={agentName} disabled style={{...inp,background:"#f1f5f9",color:"#64748b"}}/>}</F>
         <F label="Call Attempts"><input type="number" min="0" value={f.attemptCount} onChange={e=>s("attemptCount",Number(e.target.value))} style={inp}/></F>
         <F label="Disposition"><select value={f.disposition} onChange={e=>s("disposition",e.target.value)} style={{...inp,cursor:"pointer"}}>{DISPOSITIONS.map(d=><option key={d.label}>{d.label}</option>)}</select></F>
         <F label="Lead Status"><input value={f.leadStatus||""} onChange={e=>s("leadStatus",e.target.value)} style={inp} placeholder="e.g. Hot"/></F>
@@ -343,6 +343,7 @@ function CallbacksPanel({ leads, onSelect }) {
 export default function App() {
   const [user,setUser]           = useState(null);
   const [authLoading,setAuthLoading] = useState(true);
+  const [agents,setAgents]       = useState([]);
   const [leads,setLeads]         = useState([]);
   const [loading,setLoading]     = useState(false);
   const [saving,setSaving]       = useState(false);
@@ -358,6 +359,7 @@ export default function App() {
   const [sortBy,setSortBy]       = useState("dateReceived");
   const [showAdd,setShowAdd]     = useState(false);
   const [showWaAdd,setShowWaAdd] = useState(false);
+  const [showAgents,setShowAgents] = useState(false);
   const [waPhone,setWaPhone]     = useState("");
   const [editLead,setEditLead]   = useState(null);
   const [dispLead,setDispLead]   = useState(null);
@@ -376,6 +378,23 @@ export default function App() {
     const {data:{subscription}}=supabase.auth.onAuthStateChange((_,session)=>{ setUser(session?.user||null); setAuthLoading(false); });
     return()=>subscription.unsubscribe();
   },[]);
+
+  // Auto-register agent + load agents list
+  useEffect(()=>{
+    if(!user) return;
+    // Auto-register this user as agent if not already in agents table
+    supabase.from("agents").upsert({
+      id: user.id,
+      email: user.email,
+      full_name: user?.user_metadata?.full_name || user.email.split("@")[0],
+      avatar_url: user?.user_metadata?.avatar_url || "",
+      role: user.email===ADMIN_EMAIL ? "admin" : "agent",
+      is_active: true,
+    }, { onConflict: "id" });
+    // Load all agents (for admin dropdown)
+    supabase.from("agents").select("*").eq("is_active",true).order("full_name")
+      .then(({data})=>setAgents(data||[]));
+  },[user]);
 
   // Load leads
   useEffect(()=>{
@@ -495,7 +514,7 @@ export default function App() {
             <div><div style={{ fontWeight:900, fontSize:16, color:"#0f172a", fontFamily:"'Sora',sans-serif", lineHeight:1.1 }}>LeadFlow</div><div style={{ fontSize:9, color:"#94a3b8", fontWeight:700, letterSpacing:.4 }}>{isAdmin?"ADMIN":"TELESALES AGENT"}</div></div>
           </div>
           <div style={{ display:"flex", gap:3, background:"#f0f2f8", borderRadius:10, padding:3 }}>
-            {navB("leads","📋 Leads")}{navB("callbacks","🔁 Follow-ups",urgentCbs)}{navB("analytics","📊 Analytics")}
+            {navB("leads","📋 Leads")}{navB("callbacks","🔁 Follow-ups",urgentCbs)}{navB("analytics","📊 Analytics")}{isAdmin&&navB("agents","👥 Agents")}
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:10 }}>
             {isAdmin&&<span style={{ background:"#fef3c7", color:"#92400e", borderRadius:8, padding:"3px 10px", fontSize:11, fontWeight:800 }}>👑 Admin</span>}
@@ -624,6 +643,108 @@ export default function App() {
             )}
           </div>
         )}
+
+        {/* AGENTS TAB */}
+        {!loading&&tab==="agents"&&isAdmin&&(
+          <div>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+              <div style={{ fontWeight:900, fontSize:20, color:"#0f172a", fontFamily:"'Sora',sans-serif" }}>👥 Agent Management</div>
+              <div style={{ fontSize:13, color:"#64748b" }}>Agents auto-register when they first sign in with Gmail</div>
+            </div>
+
+            {/* Agent cards */}
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))", gap:14, marginBottom:24 }}>
+              {agents.filter(a=>a.role!=="admin").map(a=>{
+                const aLeads = leads.filter(l=>l.agent===a.full_name);
+                const aConv  = aLeads.filter(l=>l.disposition==="Converted").length;
+                const aIntr  = aLeads.filter(l=>l.disposition==="Interested").length;
+                const aCb    = aLeads.filter(l=>l.disposition==="Callback"&&l.callbackDate).length;
+                return (
+                  <div key={a.id} style={{ background:"#fff", borderRadius:14, border:"1px solid #e9ecf3", padding:20, position:"relative" }}>
+                    {/* Active indicator */}
+                    <div style={{ position:"absolute", top:16, right:16, width:8, height:8, borderRadius:"50%", background:a.is_active?"#10b981":"#ef4444" }}/>
+                    <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:16 }}>
+                      {a.avatar_url
+                        ? <img src={a.avatar_url} alt="" style={{ width:44, height:44, borderRadius:"50%", objectFit:"cover" }}/>
+                        : <Ava name={a.full_name||"?"} size={44}/>
+                      }
+                      <div>
+                        <div style={{ fontWeight:800, fontSize:15, color:"#0f172a" }}>{a.full_name}</div>
+                        <div style={{ fontSize:12, color:"#64748b" }}>{a.email}</div>
+                        <div style={{ fontSize:10, background:"#eef2ff", color:"#6366f1", borderRadius:6, padding:"1px 7px", display:"inline-block", fontWeight:700, marginTop:3 }}>Agent</div>
+                      </div>
+                    </div>
+                    {/* Stats */}
+                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:8, marginBottom:14 }}>
+                      {[["Total",aLeads.length,"#6366f1"],["Converted",aConv,"#059669"],["Interested",aIntr,"#10b981"],["Follow-ups",aCb,"#3b82f6"]].map(([lbl,val,c])=>(
+                        <div key={lbl} style={{ background:"#f8f9ff", borderRadius:8, padding:"8px 6px", textAlign:"center" }}>
+                          <div style={{ fontSize:18, fontWeight:900, color:c, fontFamily:"'Sora',sans-serif" }}>{val}</div>
+                          <div style={{ fontSize:9, color:"#94a3b8", fontWeight:700, letterSpacing:.3 }}>{lbl.toUpperCase()}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Assign leads today */}
+                    <div style={{ borderTop:"1px solid #f1f5f9", paddingTop:12 }}>
+                      <div style={{ fontSize:11, color:"#64748b", marginBottom:8, fontWeight:600 }}>📋 Unassigned leads today: <strong style={{ color:"#6366f1" }}>{leads.filter(l=>!l.agent&&l.dateReceived===todayStr()).length}</strong></div>
+                      <button onClick={async()=>{
+                        // Assign all today's unassigned leads to this agent
+                        const unassigned = leads.filter(l=>(!l.agent||l.agent==="")&&l.dateReceived===todayStr());
+                        if(unassigned.length===0){ showToast("No unassigned leads for today","error"); return; }
+                        for(const lead of unassigned){
+                          await supabase.from("leads").update({agent:a.full_name}).eq("id",lead.id);
+                        }
+                        setLeads(ls=>ls.map(l=>(!l.agent||l.agent==="")&&l.dateReceived===todayStr()?{...l,agent:a.full_name}:l));
+                        showToast(`✅ ${unassigned.length} leads assigned to ${a.full_name}!`);
+                      }} style={{ width:"100%", padding:"8px", borderRadius:8, border:"none", background:"linear-gradient(135deg,#6366f1,#3b82f6)", color:"#fff", cursor:"pointer", fontWeight:700, fontSize:12, fontFamily:"inherit" }}>
+                        Assign Today's Leads →
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              {agents.filter(a=>a.role!=="admin").length===0&&(
+                <div style={{ gridColumn:"1/-1", textAlign:"center", padding:48, color:"#94a3b8" }}>
+                  <div style={{ fontSize:36, marginBottom:8 }}>👥</div>
+                  <div style={{ fontWeight:600, marginBottom:4 }}>No agents yet</div>
+                  <div style={{ fontSize:13 }}>Agents will appear here automatically when they first sign in with their Gmail</div>
+                </div>
+              )}
+            </div>
+
+            {/* Bulk assign section */}
+            <div style={{ background:"#fff", borderRadius:14, border:"1px solid #e9ecf3", padding:22 }}>
+              <div style={{ fontWeight:800, fontSize:15, marginBottom:4, fontFamily:"'Sora',sans-serif" }}>⚡ Bulk Assign Leads</div>
+              <div style={{ fontSize:13, color:"#64748b", marginBottom:16 }}>Distribute all unassigned leads equally among all active agents automatically</div>
+              <div style={{ display:"flex", gap:10, alignItems:"center", flexWrap:"wrap" }}>
+                <div style={{ background:"#f8f9ff", borderRadius:8, padding:"10px 16px", fontSize:13 }}>
+                  <span style={{ color:"#94a3b8" }}>Unassigned leads: </span>
+                  <span style={{ fontWeight:800, color:"#6366f1", fontSize:16 }}>{leads.filter(l=>!l.agent||l.agent==="").length}</span>
+                </div>
+                <div style={{ background:"#f8f9ff", borderRadius:8, padding:"10px 16px", fontSize:13 }}>
+                  <span style={{ color:"#94a3b8" }}>Active agents: </span>
+                  <span style={{ fontWeight:800, color:"#10b981", fontSize:16 }}>{agents.filter(a=>a.role!=="admin"&&a.is_active).length}</span>
+                </div>
+                <button onClick={async()=>{
+                  const unassigned = leads.filter(l=>!l.agent||l.agent==="");
+                  const activeAgents = agents.filter(a=>a.role!=="admin"&&a.is_active);
+                  if(unassigned.length===0){ showToast("No unassigned leads","error"); return; }
+                  if(activeAgents.length===0){ showToast("No active agents","error"); return; }
+                  // Distribute round-robin
+                  for(let i=0; i<unassigned.length; i++){
+                    const agentForLead = activeAgents[i%activeAgents.length];
+                    await supabase.from("leads").update({agent:agentForLead.full_name}).eq("id",unassigned[i].id);
+                  }
+                  // Reload leads
+                  const {data}=await supabase.from("leads").select("*").order("created_at",{ascending:false});
+                  setLeads((data||[]).map(fromDb));
+                  showToast(`✅ ${unassigned.length} leads distributed among ${activeAgents.length} agents!`);
+                }} style={{ padding:"10px 20px", borderRadius:9, border:"none", background:"linear-gradient(135deg,#10b981,#059669)", color:"#fff", cursor:"pointer", fontWeight:800, fontSize:13, fontFamily:"inherit" }}>
+                  ⚡ Auto-Distribute All
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <Modal show={showWaAdd} onClose={()=>{setShowWaAdd(false);setWaPhone("");}} width={480}>
@@ -721,9 +842,10 @@ export default function App() {
           saving={saving}
           agentName={agentName}
           isAdmin={isAdmin}
+          agents={agents}
         />
       </Modal>
-      <Modal show={!!editLead} onClose={()=>setEditLead(null)} width={700}>{editLead&&<LeadForm initial={editLead} onSave={f=>upd(editLead.id,f)} onCancel={()=>setEditLead(null)} title="✏️ Edit Lead" saving={saving} agentName={agentName} isAdmin={isAdmin}/>}</Modal>
+      <Modal show={!!editLead} onClose={()=>setEditLead(null)} width={700}>{editLead&&<LeadForm initial={editLead} onSave={f=>upd(editLead.id,f)} onCancel={()=>setEditLead(null)} title="✏️ Edit Lead" saving={saving} agentName={agentName} isAdmin={isAdmin} agents={agents}/>}</Modal>
       <Modal show={!!dispLead} onClose={()=>setDispLead(null)} width={480}>{dispLead&&<DispPanel lead={dispLead} onUpdate={p=>upd(dispLead.id,p)} onClose={()=>setDispLead(null)} saving={saving}/>}</Modal>
       <Modal show={!!detail} onClose={()=>setDetail(null)} width={580}>
         {detail&&(<div style={{ padding:26 }}>
