@@ -401,7 +401,7 @@ export default function App() {
                         </td>
                         <td style={{ padding:"11px 12px", whiteSpace:"nowrap" }}>
                           <div style={{ fontWeight:600 }}>{l.phone}</div>
-                          <a href={`https://wa.me/${(l.whatsappNumber||"").replace(/\D/g,"")}`} target="_blank" rel="noopener"
+                          <a href={`https://wa.me/${(l.whatsappNumber||"").replace(/\D/g,"")}`} target="_blank" rel="noreferrer"
                             style={{ display:"inline-flex", alignItems:"center", gap:3, marginTop:3, background:"#25d366", color:"#fff", borderRadius:5, padding:"2px 7px", fontSize:10, fontWeight:800, textDecoration:"none" }}>
                             W Chat
                           </a>
@@ -589,9 +589,9 @@ export default function App() {
             </div>
             {detail.callbackDate&&<div style={{ background:"#eff6ff", border:"1px solid #3b82f6", borderRadius:10, padding:"10px 14px", marginBottom:10 }}><div style={{ fontSize:10, fontWeight:800, color:"#3b82f6", marginBottom:2 }}>🔁 CALLBACK SCHEDULED</div><div style={{ fontWeight:700 }}>{detail.callbackDate} at {detail.callbackTime}</div></div>}
             {detail.callNotes&&<div style={{ background:"#fffbeb", border:"1px solid #fde68a", borderRadius:10, padding:"10px 14px", marginBottom:12 }}><div style={{ fontSize:10, fontWeight:800, color:"#92400e", marginBottom:3 }}>📝 CALL NOTES</div><div style={{ fontSize:13, color:"#78350f" }}>{detail.callNotes}</div></div>}
-            {detail.sheetLink&&<a href={detail.sheetLink} target="_blank" rel="noopener" style={{ display:"inline-flex", alignItems:"center", gap:6, background:"#e8f5e9", color:"#2e7d32", borderRadius:8, padding:"7px 14px", textDecoration:"none", fontWeight:700, fontSize:13, marginBottom:14 }}>📊 Open Google Sheet</a>}
+            {detail.sheetLink&&<a href={detail.sheetLink} target="_blank" rel="noreferrer" style={{ display:"inline-flex", alignItems:"center", gap:6, background:"#e8f5e9", color:"#2e7d32", borderRadius:8, padding:"7px 14px", textDecoration:"none", fontWeight:700, fontSize:13, marginBottom:14 }}>📊 Open Google Sheet</a>}
             <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:4 }}>
-              <a href={`https://wa.me/${(detail.whatsappNumber||"").replace(/\D/g,"")}`} target="_blank" rel="noopener" style={{ padding:"9px 15px", borderRadius:8, background:"#25d366", color:"#fff", fontWeight:800, fontSize:13, textDecoration:"none" }}>W Chat</a>
+              <a href={`https://wa.me/${(detail.whatsappNumber||"").replace(/\D/g,"")}`} target="_blank" rel="noreferrer" style={{ padding:"9px 15px", borderRadius:8, background:"#25d366", color:"#fff", fontWeight:800, fontSize:13, textDecoration:"none" }}>W Chat</a>
               <button onClick={()=>{setDispLead(detail);setDetail(null);}} style={{ padding:"9px 15px", borderRadius:8, border:"none", background:"#eef2ff", color:"#6366f1", cursor:"pointer", fontWeight:800, fontSize:13, fontFamily:"inherit" }}>Update Status</button>
               <button onClick={()=>{setEditLead(detail);setDetail(null);}} style={{ padding:"9px 15px", borderRadius:8, border:"none", background:"#0f172a", color:"#fff", cursor:"pointer", fontWeight:800, fontSize:13, fontFamily:"inherit" }}>Edit Lead</button>
             </div>
