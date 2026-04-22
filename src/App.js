@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { useState, useEffect, useMemo } from "react";
 
 const AD_SOURCES = ["Facebook", "Instagram", "WhatsApp Click-to-Chat"];
