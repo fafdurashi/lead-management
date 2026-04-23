@@ -949,6 +949,37 @@ export default function App() {
   if(authLoading || (user && !agentName && !needsName)) return (<div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:"#f0f2f8" }}><div style={{ textAlign:"center" }}><div style={{ width:44, height:44, border:"4px solid #e2e8f0", borderTop:"4px solid #6366f1", borderRadius:"50%", margin:"0 auto 16px", animation:"spin 0.8s linear infinite" }}/><div style={{ color:"#64748b", fontWeight:600, fontFamily:"sans-serif" }}>Setting up your account…</div></div><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></div>);
   if(!user) return <LoginScreen/>;
 
+  // ── Pre-compute everything BEFORE early returns ───────────────
+  const T = isArabic ? {
+    leads:"العملاء", callbacks:"المتابعات", analytics:"التحليلات",
+    agents:"الوكلاء", settings:"الإعدادات", livecalls:"المكالمات",
+    leaderboard:"المتصدرون", kpi:"أداء الوكيل", audit:"سجل التغييرات",
+    addLead:"+ إضافة عميل", search:"🔍 بحث...", total:"إجمالي العملاء",
+    interested:"مهتم", converted:"تم التحويل", callbacks2:"مواعيد",
+    digital:"عملاء رقميون", others:"آخرون", admin:"مدير",
+    signOut:"تسجيل خروج", allDisp:"كل الحالات", allSrc:"كل المصادر",
+    allAgents:"كل الوكلاء", newest:"الأحدث أولاً", nameAZ:"الاسم أ-ي",
+    mostAttempts:"أكثر محاولات", export:"📤 تصدير",
+  } : {
+    leads:"📋 Leads", callbacks:"🔁 Follow-ups", analytics:"📊 Analytics",
+    agents:"👥 Agents", settings:"⚙️ Settings", livecalls:"📞 Live Calls",
+    leaderboard:"🏆 Leaderboard", kpi:"🎯 My KPIs", audit:"📋 Audit Log",
+    addLead:"+ Add Lead", search:"🔍  Search...", total:"TOTAL LEADS",
+    interested:"INTERESTED", converted:"CONVERTED", callbacks2:"FOLLOW-UPS",
+    digital:"DIGITAL LEADS", others:"OTHERS", admin:"Admin",
+    signOut:"Sign Out", allDisp:"All Dispositions", allSrc:"All Sources",
+    allAgents:"All Agents", newest:"Newest First", nameAZ:"Name A–Z",
+    mostAttempts:"Most Attempts", export:"📤 Export",
+  };
+
+  const total=leads.length,conv=leads.filter(l=>l.disposition==="Converted").length;
+  const intr=leads.filter(l=>l.disposition==="Interested").length,cbs=leads.filter(l=>l.disposition==="Callback").length;
+  const digital=leads.filter(l=>l.adSource==="Digital Leads").length;
+  const others=leads.filter(l=>l.adSource==="Others").length;
+  const inp={border:"1.5px solid #e2e8f0",borderRadius:8,padding:"8px 11px",fontSize:13,fontFamily:"inherit",background:"#fff",outline:"none",cursor:"pointer",color:"#0f172a"};
+  const navB=(id,lbl,badge)=>(<button onClick={()=>setTab(id)} style={{ padding:"7px 14px", borderRadius:8, border:"none", cursor:"pointer", fontWeight:700, fontSize:13, fontFamily:"inherit", background:tab===id?"#fff":"transparent", color:tab===id?"#0f172a":"#94a3b8", boxShadow:tab===id?"0 1px 4px rgba(0,0,0,.1)":"none", display:"flex", alignItems:"center", gap:5 }}>{lbl}{badge>0&&<span style={{ background:"#ef4444", color:"#fff", borderRadius:10, padding:"1px 6px", fontSize:10, fontWeight:900 }}>{badge}</span>}</button>);
+  const EMPTY={serialNo:"",dateReceived:todayStr(),timeReceived:"",leadName:"",phone:"",whatsappNumber:"",email:"",gender:"Not Specified",city:"",language:"Arabic",adSource:"Digital Leads",adCampaign:"",adSet:"",product:"",disposition:"New",callbackDate:"",callbackTime:"",agent:agentName,callNotes:"",attemptCount:0,lastCallDate:"",sheetLink:"",eidNo:"",leadStatus:"",callStatus:"",salesStatus:"",remarks:""};
+
   // First time agent — ask for their name
   if(needsName) return (
     <div style={{ minHeight:"100vh", background:"linear-gradient(135deg,#0f172a,#1e293b)", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'DM Sans',sans-serif" }}>
@@ -983,37 +1014,6 @@ export default function App() {
       </div>
     </div>
   );
-
-  // ── Arabic translations ───────────────────────────────────────
-  const T = isArabic ? {
-    leads:"العملاء", callbacks:"المتابعات", analytics:"التحليلات",
-    agents:"الوكلاء", settings:"الإعدادات", livecalls:"المكالمات",
-    leaderboard:"المتصدرون", kpi:"أداء الوكيل", audit:"سجل التغييرات",
-    addLead:"+ إضافة عميل", search:"🔍 بحث...", total:"إجمالي العملاء",
-    interested:"مهتم", converted:"تم التحويل", callbacks2:"مواعيد",
-    digital:"عملاء رقميون", others:"آخرون", admin:"مدير",
-    signOut:"تسجيل خروج", allDisp:"كل الحالات", allSrc:"كل المصادر",
-    allAgents:"كل الوكلاء", newest:"الأحدث أولاً", nameAZ:"الاسم أ-ي",
-    mostAttempts:"أكثر محاولات", export:"📤 تصدير",
-  } : {
-    leads:"📋 Leads", callbacks:"🔁 Follow-ups", analytics:"📊 Analytics",
-    agents:"👥 Agents", settings:"⚙️ Settings", livecalls:"📞 Live Calls",
-    leaderboard:"🏆 Leaderboard", kpi:"🎯 My KPIs", audit:"📋 Audit Log",
-    addLead:"+ Add Lead", search:"🔍  Search...", total:"TOTAL LEADS",
-    interested:"INTERESTED", converted:"CONVERTED", callbacks2:"FOLLOW-UPS",
-    digital:"DIGITAL LEADS", others:"OTHERS", admin:"Admin",
-    signOut:"Sign Out", allDisp:"All Dispositions", allSrc:"All Sources",
-    allAgents:"All Agents", newest:"Newest First", nameAZ:"Name A–Z",
-    mostAttempts:"Most Attempts", export:"📤 Export",
-  };
-
-  const total=leads.length,conv=leads.filter(l=>l.disposition==="Converted").length;
-  const intr=leads.filter(l=>l.disposition==="Interested").length,cbs=leads.filter(l=>l.disposition==="Callback").length;
-  const digital=leads.filter(l=>l.adSource==="Digital Leads").length;
-  const others=leads.filter(l=>l.adSource==="Others").length;
-  const inp={border:"1.5px solid #e2e8f0",borderRadius:8,padding:"8px 11px",fontSize:13,fontFamily:"inherit",background:"#fff",outline:"none",cursor:"pointer",color:"#0f172a"};
-  const navB=(id,lbl,badge)=>(<button onClick={()=>setTab(id)} style={{ padding:"7px 14px", borderRadius:8, border:"none", cursor:"pointer", fontWeight:700, fontSize:13, fontFamily:"inherit", background:tab===id?"#fff":"transparent", color:tab===id?"#0f172a":"#94a3b8", boxShadow:tab===id?"0 1px 4px rgba(0,0,0,.1)":"none", display:"flex", alignItems:"center", gap:5 }}>{lbl}{badge>0&&<span style={{ background:"#ef4444", color:"#fff", borderRadius:10, padding:"1px 6px", fontSize:10, fontWeight:900 }}>{badge}</span>}</button>);
-  const EMPTY={serialNo:"",dateReceived:todayStr(),timeReceived:"",leadName:"",phone:"",whatsappNumber:"",email:"",gender:"Not Specified",city:"",language:"Arabic",adSource:"Digital Leads",adCampaign:"",adSet:"",product:"",disposition:"New",callbackDate:"",callbackTime:"",agent:agentName,callNotes:"",attemptCount:0,lastCallDate:"",sheetLink:"",eidNo:"",leadStatus:"",callStatus:"",salesStatus:"",remarks:""};
 
   return (
     <div style={{ fontFamily:"'DM Sans','Segoe UI',sans-serif", background:"#f0f2f8", minHeight:"100vh", direction:isArabic?"rtl":"ltr" }}>
