@@ -1,6 +1,22 @@
 /* eslint-disable */
-import { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
+
+// Error boundary to catch white screen crashes
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(e) { return { error: e }; }
+  render() {
+    if (this.state.error) return (
+      <div style={{ padding:40, fontFamily:"sans-serif", background:"#fef2f2", minHeight:"100vh" }}>
+        <h2 style={{ color:"#dc2626" }}>⚠️ App Error — Please share this with support</h2>
+        <pre style={{ background:"#fee2e2", padding:20, borderRadius:8, fontSize:13, whiteSpace:"pre-wrap", overflowX:"auto" }}>{this.state.error?.message}{"\n\n"}{this.state.error?.stack}</pre>
+        <button onClick={()=>window.location.reload()} style={{ marginTop:16, padding:"10px 20px", borderRadius:8, background:"#6366f1", color:"#fff", border:"none", cursor:"pointer", fontSize:14, fontWeight:700 }}>🔄 Reload App</button>
+      </div>
+    );
+    return this.props.children;
+  }
+}
 
 const SUPABASE_URL = "https://mswsvjaortcotuytlvdq.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1zd3N2amFvcnRjb3R1eXRsdmRxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4Mzg3NjgsImV4cCI6MjA5MjQxNDc2OH0.9FxvfwGOW1ae6-EomRMhHMfVUY5aCfeyZHMDXgrCAyc";
@@ -2028,3 +2044,7 @@ export default function App() {
     </div>
   );
 }
+
+// Wrap with error boundary so we can see crashes
+const AppWithBoundary = () => <ErrorBoundary><App/></ErrorBoundary>;
+export default AppWithBoundary;
