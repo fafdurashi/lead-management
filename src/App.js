@@ -339,6 +339,234 @@ function CallbacksPanel({ leads, onSelect }) {
   ):(<><Section title="🚨 OVERDUE" items={overdue} tag="Overdue" tagColor="#ef4444"/><Section title="⏰ DUE TODAY" items={dueToday} tag="Today" tagColor="#f59e0b"/><Section title="📅 UPCOMING" items={upcoming} tag="Scheduled" tagColor="#3b82f6"/></>);
 }
 
+// ── IMPORT CSV COMPONENT ──────────────────────────────────────────────────────
+function ImportCSV({ onClose, onImport, EMPTY }) {
+  const [step,setStep]       = useState(1); // 1=upload, 2=map, 3=preview
+  const [headers,setHeaders] = useState([]);
+  const [rows,setRows]       = useState([]);
+  const [mapping,setMapping] = useState({});
+  const [importing,setImporting] = useState(false);
+
+  const FIELDS = [
+    {key:"leadName",label:"Customer Name"},
+    {key:"phone",label:"Phone Number"},
+    {key:"whatsappNumber",label:"WhatsApp Number"},
+    {key:"eidNo",label:"EID No"},
+    {key:"dateReceived",label:"Date Received"},
+    {key:"agent",label:"Assigned Agent"},
+    {key:"adCampaign",label:"Campaign"},
+    {key:"adSet",label:"Ad Set"},
+    {key:"disposition",label:"Call Outcome"},
+    {key:"callNotes",label:"Remarks"},
+    {key:"leadStatus",label:"Lead Status"},
+    {key:"salesStatus",label:"Sales Status"},
+    {key:"city",label:"City"},
+    {key:"language",label:"Language"},
+  ];
+
+  const handleFile = e => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const text = ev.target.result;
+      const lines = text.trim().split("\n");
+      const parseCSVLine = line => {
+        const cols=[]; let cur="", inQ=false;
+        for(let i=0;i<line.length;i++){
+          if(line[i]==='"'){inQ=!inQ;continue;}
+          if(line[i]===","&&!inQ){cols.push(cur.trim());cur="";continue;}
+          cur+=line[i];
+        }
+        cols.push(cur.trim());
+        return cols;
+      };
+      const hdrs = parseCSVLine(lines[0]);
+      const data = lines.slice(1).filter(l=>l.trim()).map(l=>parseCSVLine(l));
+      setHeaders(hdrs);
+      setRows(data);
+      // Auto-map headers
+      const autoMap = {};
+      FIELDS.forEach(f=>{
+        const match = hdrs.findIndex(h=>h.toLowerCase().includes(f.label.toLowerCase().split(" ")[0])||h.toLowerCase().includes(f.key.toLowerCase()));
+        if(match>=0) autoMap[f.key]=match;
+      });
+      setMapping(autoMap);
+      setStep(2);
+    };
+    reader.readAsText(file);
+  };
+
+  const mapped = rows.map(row=>{
+    const lead={...EMPTY};
+    Object.entries(mapping).forEach(([field,colIdx])=>{ if(row[colIdx]!==undefined) lead[field]=row[colIdx]; });
+    return lead;
+  }).filter(l=>l.leadName);
+
+  return (
+    <div style={{ padding:26 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+        <div style={{ fontWeight:900, fontSize:18, color:"#0f172a", fontFamily:"'Sora',sans-serif" }}>📥 Import Leads from CSV/Excel</div>
+        <button onClick={onClose} style={{ background:"none", border:"none", fontSize:20, cursor:"pointer", color:"#94a3b8" }}>✕</button>
+      </div>
+
+      {/* Step indicator */}
+      <div style={{ display:"flex", gap:0, marginBottom:24 }}>
+        {["Upload File","Map Columns","Preview & Import"].map((s,i)=>(
+          <div key={s} style={{ flex:1, textAlign:"center" }}>
+            <div style={{ width:28, height:28, borderRadius:"50%", background:step>i+1?"#10b981":step===i+1?"#6366f1":"#e9ecf3", color:step>=i+1?"#fff":"#94a3b8", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:12, margin:"0 auto 6px" }}>{step>i+1?"✓":i+1}</div>
+            <div style={{ fontSize:10, color:step===i+1?"#6366f1":"#94a3b8", fontWeight:700 }}>{s}</div>
+          </div>
+        ))}
+      </div>
+
+      {step===1&&(
+        <div style={{ textAlign:"center", padding:32 }}>
+          <div style={{ fontSize:48, marginBottom:16 }}>📂</div>
+          <div style={{ fontWeight:700, fontSize:16, marginBottom:8 }}>Upload your CSV or Excel file</div>
+          <div style={{ fontSize:13, color:"#64748b", marginBottom:24 }}>Export your Excel sheet as CSV first (File → Save As → CSV)</div>
+          <label style={{ padding:"12px 32px", borderRadius:10, border:"2px dashed #6366f1", background:"#eef2ff", color:"#6366f1", cursor:"pointer", fontWeight:800, fontSize:14, display:"inline-block" }}>
+            Choose CSV File
+            <input type="file" accept=".csv,.txt" onChange={handleFile} style={{ display:"none" }}/>
+          </label>
+        </div>
+      )}
+
+      {step===2&&(
+        <div>
+          <div style={{ fontSize:13, color:"#64748b", marginBottom:16 }}>Match your file columns to LeadFlow fields. <strong>{rows.length}</strong> rows found.</div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:20, maxHeight:360, overflowY:"auto" }}>
+            {FIELDS.map(f=>(
+              <div key={f.key}>
+                <label style={{ fontSize:11, fontWeight:700, color:"#64748b", display:"block", marginBottom:3 }}>{f.label}</label>
+                <select value={mapping[f.key]??""} onChange={e=>setMapping(m=>({...m,[f.key]:e.target.value===""?undefined:Number(e.target.value)}))}
+                  style={{ width:"100%", border:"1.5px solid #e2e8f0", borderRadius:8, padding:"7px 10px", fontSize:13, fontFamily:"inherit", outline:"none", background:"#fafbfc" }}>
+                  <option value="">— Skip —</option>
+                  {headers.map((h,i)=><option key={i} value={i}>{h}</option>)}
+                </select>
+              </div>
+            ))}
+          </div>
+          <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+            <button onClick={()=>setStep(1)} style={{ padding:"9px 18px", borderRadius:8, border:"1.5px solid #e2e8f0", background:"#fff", cursor:"pointer", fontWeight:700, fontSize:13, fontFamily:"inherit", color:"#64748b" }}>Back</button>
+            <button onClick={()=>setStep(3)} disabled={mapped.length===0} style={{ padding:"9px 22px", borderRadius:8, border:"none", background:"linear-gradient(135deg,#6366f1,#3b82f6)", cursor:"pointer", fontWeight:800, fontSize:13, color:"#fff", fontFamily:"inherit", opacity:mapped.length===0?0.5:1 }}>
+              Preview {mapped.length} Leads →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step===3&&(
+        <div>
+          <div style={{ fontSize:13, color:"#64748b", marginBottom:12 }}>Ready to import <strong>{mapped.length}</strong> leads. First 5 shown below:</div>
+          <div style={{ background:"#f8f9ff", borderRadius:10, overflow:"auto", marginBottom:20, maxHeight:260 }}>
+            <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+              <thead><tr style={{ background:"#eef2ff" }}>
+                {["Name","Phone","Agent","Campaign","Disposition"].map(h=><th key={h} style={{ padding:"8px 10px", textAlign:"left", fontWeight:700, color:"#6366f1", whiteSpace:"nowrap" }}>{h}</th>)}
+              </tr></thead>
+              <tbody>
+                {mapped.slice(0,5).map((l,i)=>(
+                  <tr key={i} style={{ borderBottom:"1px solid #e9ecf3" }}>
+                    <td style={{ padding:"7px 10px", fontWeight:600 }}>{l.leadName||"—"}</td>
+                    <td style={{ padding:"7px 10px" }}>{l.phone||"—"}</td>
+                    <td style={{ padding:"7px 10px" }}>{l.agent||"—"}</td>
+                    <td style={{ padding:"7px 10px" }}>{l.adCampaign||"—"}</td>
+                    <td style={{ padding:"7px 10px" }}>{l.disposition||"New"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+            <button onClick={()=>setStep(2)} style={{ padding:"9px 18px", borderRadius:8, border:"1.5px solid #e2e8f0", background:"#fff", cursor:"pointer", fontWeight:700, fontSize:13, fontFamily:"inherit", color:"#64748b" }}>Back</button>
+            <button onClick={async()=>{ setImporting(true); await onImport(mapped); setImporting(false); }} disabled={importing}
+              style={{ padding:"9px 22px", borderRadius:8, border:"none", background:"linear-gradient(135deg,#10b981,#059669)", cursor:"pointer", fontWeight:800, fontSize:13, color:"#fff", fontFamily:"inherit", opacity:importing?0.7:1 }}>
+              {importing?`Importing ${mapped.length} leads…`:`✅ Import ${mapped.length} Leads`}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── CUSTOM DISPOSITIONS COMPONENT ────────────────────────────────────────────
+function CustomDispositions({ current, onChange, onReset }) {
+  const [disps,setDisps] = useState(current.map(d=>({...d})));
+  const COLORS = ["#6366f1","#f59e0b","#10b981","#ef4444","#3b82f6","#8b5cf6","#64748b","#059669","#dc2626","#f97316","#06b6d4","#ec4899"];
+  const ICONS  = ["🆕","📞","✅","❌","🔁","📵","🚫","🏆","🗑️","⭐","🔥","💎","📋","⏸️"];
+
+  const update=(i,k,v)=>setDisps(ds=>ds.map((d,j)=>j===i?{...d,[k]:v}:d));
+  const remove=(i)=>setDisps(ds=>ds.filter((_,j)=>j!==i));
+  const add=()=>setDisps(ds=>[...ds,{label:`Status ${ds.length+1}`,color:COLORS[ds.length%COLORS.length],bg:"#f8f9ff",icon:"📋"}]);
+
+  return (
+    <div>
+      <div style={{ display:"grid", gap:8, marginBottom:12 }}>
+        {disps.map((d,i)=>(
+          <div key={i} style={{ display:"flex", gap:8, alignItems:"center", background:"#f8f9ff", borderRadius:8, padding:"8px 12px" }}>
+            <select value={d.icon} onChange={e=>update(i,"icon",e.target.value)} style={{ border:"1.5px solid #e2e8f0", borderRadius:6, padding:"4px", fontSize:16, background:"#fff", cursor:"pointer", outline:"none" }}>
+              {ICONS.map(ic=><option key={ic}>{ic}</option>)}
+            </select>
+            <input value={d.label} onChange={e=>update(i,"label",e.target.value)} style={{ flex:1, border:"1.5px solid #e2e8f0", borderRadius:6, padding:"6px 10px", fontSize:13, fontFamily:"inherit", outline:"none" }}/>
+            <input type="color" value={d.color} onChange={e=>update(i,"color",e.target.value)} style={{ width:32, height:32, borderRadius:6, border:"none", cursor:"pointer", padding:2 }}/>
+            <span style={{ background:d.bg||"#f8f9ff", color:d.color, border:`1px solid ${d.color}33`, borderRadius:20, padding:"2px 10px", fontSize:11, fontWeight:700, whiteSpace:"nowrap" }}>{d.icon} {d.label}</span>
+            <button onClick={()=>remove(i)} style={{ background:"#fef2f2", border:"none", color:"#ef4444", borderRadius:6, padding:"4px 8px", cursor:"pointer", fontWeight:700, fontFamily:"inherit" }}>✕</button>
+          </div>
+        ))}
+      </div>
+      <div style={{ display:"flex", gap:8 }}>
+        <button onClick={add} style={{ padding:"7px 14px", borderRadius:8, border:"1.5px solid #6366f1", background:"#eef2ff", color:"#6366f1", cursor:"pointer", fontWeight:700, fontSize:13, fontFamily:"inherit" }}>+ Add Status</button>
+        <button onClick={()=>onChange(disps.map(d=>({...d,bg:d.color+"18"})))} style={{ padding:"7px 14px", borderRadius:8, border:"none", background:"linear-gradient(135deg,#6366f1,#3b82f6)", color:"#fff", cursor:"pointer", fontWeight:700, fontSize:13, fontFamily:"inherit" }}>Save Changes</button>
+        <button onClick={onReset} style={{ padding:"7px 14px", borderRadius:8, border:"1.5px solid #e2e8f0", background:"#fff", color:"#64748b", cursor:"pointer", fontWeight:700, fontSize:13, fontFamily:"inherit" }}>Reset Defaults</button>
+      </div>
+    </div>
+  );
+}
+
+// ── CALL HISTORY COMPONENT ────────────────────────────────────────────────────
+function CallHistory({ leads, supabase, ngrokUrl, isAdmin, agentName, EMPTY, setShowAdd, showToast }) {
+  const [logs, setLogs] = useState([]);
+  useEffect(()=>{
+    supabase.from("call_logs").select("*").order("created_at",{ascending:false}).limit(20)
+      .then(({data})=>setLogs(data||[]));
+  },[]);
+  if(logs.length===0) return <div style={{ color:"#94a3b8", fontSize:13, textAlign:"center", padding:20 }}>No call history yet — calls will appear here automatically</div>;
+  return (
+    <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
+      <thead><tr style={{ borderBottom:"1px solid #f1f5f9" }}>
+        {["Time","Agent","Extension","Phone","Direction","Status","Duration","Lead"].map(h=>(
+          <th key={h} style={{ padding:"6px 10px", textAlign:"left", fontSize:10, fontWeight:800, color:"#94a3b8" }}>{h}</th>
+        ))}
+      </tr></thead>
+      <tbody>
+        {logs.map(log=>{
+          const matchLead = leads.find(l=>(l.phone||"").replace(/\D/g,"").slice(-9)===(log.phone_number||"").replace(/\D/g,"").slice(-9));
+          const dur = log.duration ? `${Math.floor(log.duration/60)}:${(log.duration%60).toString().padStart(2,"0")}` : "—";
+          const statusColor = { ended:"#10b981", answered:"#3b82f6", ringing:"#f59e0b", missed:"#ef4444" };
+          return (
+            <tr key={log.id} style={{ borderBottom:"1px solid #f8f9fc" }}>
+              <td style={{ padding:"9px 10px", fontSize:11, color:"#64748b" }}>{new Date(log.created_at).toLocaleString()}</td>
+              <td style={{ padding:"9px 10px", fontWeight:600 }}>{log.agent_name||"—"}</td>
+              <td style={{ padding:"9px 10px" }}><span style={{ background:"#eef2ff", color:"#6366f1", borderRadius:6, padding:"2px 8px", fontWeight:700, fontSize:12 }}>{log.extension||"—"}</span></td>
+              <td style={{ padding:"9px 10px", fontWeight:600 }}>{log.phone_number||"—"}</td>
+              <td style={{ padding:"9px 10px" }}><span style={{ fontSize:12 }}>{log.direction==="inbound"?"📥 In":"📤 Out"}</span></td>
+              <td style={{ padding:"9px 10px" }}><span style={{ color:statusColor[log.status]||"#64748b", fontWeight:700, fontSize:12 }}>{log.status||"—"}</span></td>
+              <td style={{ padding:"9px 10px", fontWeight:700, fontFamily:"monospace" }}>{dur}</td>
+              <td style={{ padding:"9px 10px" }}>
+                {matchLead
+                  ? <span style={{ color:"#059669", fontWeight:700, fontSize:12 }}>✅ {matchLead.leadName}</span>
+                  : <span style={{ color:"#94a3b8", fontSize:12 }}>No match</span>
+                }
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
+
 // ── PRE-REGISTER AGENT FORM ───────────────────────────────────────────────────
 function PreRegisterAgent({ onSave }) {
   const [name, setName] = useState("");
@@ -390,16 +618,32 @@ export default function App() {
   const [target,setTarget]       = useState(()=>Number(localStorage.getItem("lf_target")||10));
   const [showTargetEdit,setShowTargetEdit] = useState(false);
   const [tempTarget,setTempTarget] = useState(10);
+  // Arabic UI
+  const [isArabic,setIsArabic]   = useState(()=>localStorage.getItem("lf_lang")==="ar");
+  // Audit log
+  const [auditLog,setAuditLog]   = useState([]);
+  // Auto rotation
+  const [rotationEnabled,setRotationEnabled] = useState(()=>localStorage.getItem("lf_rotation")==="1");
+  // Custom dispositions
+  const [customDisps,setCustomDisps] = useState(()=>{
+    try{ return JSON.parse(localStorage.getItem("lf_disps")||"null")||null; }catch{ return null; }
+  });
+  // Import
+  const [showImport,setShowImport] = useState(false);
   const [showAdd,setShowAdd]     = useState(false);
   const [showWaAdd,setShowWaAdd] = useState(false);
   const [showAgents,setShowAgents] = useState(false);
+  const [ngrokUrl,setNgrokUrl]   = useState(()=>localStorage.getItem("lf_ngrok")||"");
+  const [liveCalls,setLiveCalls] = useState([]);
+  const [callTick,setCallTick]   = useState(0);
   const [waPhone,setWaPhone]     = useState("");
   const [editLead,setEditLead]   = useState(null);
   const [dispLead,setDispLead]   = useState(null);
   const [detail,setDetail]       = useState(null);
   const [delLead,setDelLead]     = useState(null);
 
-  const isAdmin    = user?.email===ADMIN_EMAIL;
+  // Active dispositions — custom or default
+  const ACTIVE_DISPS = customDisps || DISPOSITIONS;
   // agentName comes from agents table (their typed name), fallback to Google name
   const [agentName, setAgentName] = useState("");
   const agentPhoto = user?.user_metadata?.avatar_url;
@@ -538,7 +782,28 @@ export default function App() {
     return()=>clearInterval(interval);
   },[agentName]);
 
-  // ── Real-time live updates via Supabase ───────────────────────────────────
+  // ── Live calls from Yeastar bridge ───────────────────────────────────────
+  useEffect(()=>{
+    if(!agentName || !ngrokUrl) return;
+    const fetchLiveCalls = async ()=>{
+      try {
+        const res = await fetch(`${ngrokUrl}/live-calls`);
+        const data = await res.json();
+        // Handle different response shapes from Yeastar
+        const calls = data?.data || data?.calls || data || [];
+        if(Array.isArray(calls)) setLiveCalls(calls);
+      } catch(e) { /* bridge offline */ }
+    };
+    fetchLiveCalls();
+    const interval = setInterval(fetchLiveCalls, 5000); // poll every 5s
+    return()=>clearInterval(interval);
+  },[agentName, ngrokUrl]);
+
+  // Tick every second for live call duration display
+  useEffect(()=>{
+    const t = setInterval(()=>setCallTick(n=>n+1), 1000);
+    return()=>clearInterval(t);
+  },[]);
   useEffect(()=>{
     if(!agentName) return;
     const channel = supabase.channel("leads-realtime")
@@ -638,10 +903,47 @@ export default function App() {
       &&inDateRange;
   }).sort((a,b)=>sortBy==="leadName"?a.leadName.localeCompare(b.leadName):sortBy==="attempts"?b.attemptCount-a.attemptCount:(b.dateReceived+b.timeReceived).localeCompare(a.dateReceived+a.timeReceived)),[leads,search,fDisp,fSrc,fAgent,sortBy,dateFrom,dateTo]);
 
-  const add=async form=>{ setSaving(true); const {data,error}=await supabase.from("leads").insert(toDb(form)).select().single(); if(error) showToast("Failed to add","error"); else { setLeads(ls=>[fromDb(data),...ls]); setShowAdd(false); showToast("✅ Lead added!"); } setSaving(false); };
-  const upd=async(id,patch)=>{ setSaving(true); const {data,error}=await supabase.from("leads").update(toDb(patch)).eq("id",id).select().single(); if(error) showToast("Failed to update","error"); else { const u=fromDb(data); setLeads(ls=>ls.map(l=>l.id===id?u:l)); if(detail?.id===id) setDetail(u); setDispLead(null); setEditLead(null); showToast("✅ Updated!"); } setSaving(false); };
-  const del=async id=>{ setSaving(true); const {error}=await supabase.from("leads").delete().eq("id",id); if(error) showToast("Failed to delete","error"); else { setLeads(ls=>ls.filter(l=>l.id!==id)); setDelLead(null); setDetail(null); showToast("🗑️ Deleted"); } setSaving(false); };
+  const add=async form=>{ setSaving(true); const {data,error}=await supabase.from("leads").insert(toDb(form)).select().single(); if(error) showToast("Failed to add","error"); else { setLeads(ls=>[fromDb(data),...ls]); setShowAdd(false); showToast("✅ Lead added!"); logAudit("ADD",form.leadName,`Added by ${agentName}`); } setSaving(false); };
+  const upd=async(id,patch)=>{ setSaving(true); const {data,error}=await supabase.from("leads").update(toDb(patch)).eq("id",id).select().single(); if(error) showToast("Failed to update","error"); else { const u=fromDb(data); setLeads(ls=>ls.map(l=>l.id===id?u:l)); if(detail?.id===id) setDetail(u); setDispLead(null); setEditLead(null); showToast("✅ Updated!"); logAudit("UPDATE",u.leadName,`Disposition→${patch.disposition||u.disposition} by ${agentName}`); } setSaving(false); };
+  const del=async id=>{ setSaving(true); const lead=leads.find(l=>l.id===id); const {error}=await supabase.from("leads").delete().eq("id",id); if(error) showToast("Failed to delete","error"); else { setLeads(ls=>ls.filter(l=>l.id!==id)); setDelLead(null); setDetail(null); showToast("🗑️ Deleted"); logAudit("DELETE",lead?.leadName||"Unknown",`Deleted by ${agentName}`); } setSaving(false); };
   const signOut=async()=>{ await supabase.auth.signOut(); setUser(null); setLeads([]); };
+
+  // ── Audit log ────────────────────────────────────────────────
+  const logAudit = (action, leadName, detail) => {
+    const entry = { action, leadName, detail, by: agentName, time: new Date().toISOString() };
+    setAuditLog(prev => [entry, ...prev].slice(0, 200)); // keep last 200
+    supabase.from("audit_log").insert({ action, lead_name: leadName, detail, performed_by: agentName }).then(()=>{});
+  };
+
+  // Load audit log
+  useEffect(()=>{
+    if(!agentName||!isAdmin) return;
+    supabase.from("audit_log").select("*").order("created_at",{ascending:false}).limit(100)
+      .then(({data})=>{ if(data) setAuditLog(data.map(d=>({action:d.action,leadName:d.lead_name,detail:d.detail,by:d.performed_by,time:d.created_at}))); });
+  },[agentName]);
+
+  // ── Auto Lead Rotation ────────────────────────────────────────
+  useEffect(()=>{
+    if(!rotationEnabled||!isAdmin||!agentName) return;
+    const rotate = async ()=>{
+      const activeAgents = agents.filter(a=>a.role!=="admin"&&a.is_active);
+      if(activeAgents.length===0) return;
+      const {data:unassigned}=await supabase.from("leads").select("id").or("agent.is.null,agent.eq.").limit(50);
+      if(!unassigned||unassigned.length===0) return;
+      for(let i=0;i<unassigned.length;i++){
+        const agent=activeAgents[i%activeAgents.length];
+        await supabase.from("leads").update({agent:agent.full_name}).eq("id",unassigned[i].id);
+      }
+      if(unassigned.length>0){
+        const {data}=await supabase.from("leads").select("*").order("created_at",{ascending:false});
+        setLeads((data||[]).map(fromDb));
+        showToast(`🔄 Auto-rotated ${unassigned.length} leads`);
+      }
+    };
+    rotate();
+    const interval=setInterval(rotate, 5*60*1000);
+    return()=>clearInterval(interval);
+  },[rotationEnabled,agentName,agents]);
 
   if(authLoading || (user && !agentName && !needsName)) return (<div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:"#f0f2f8" }}><div style={{ textAlign:"center" }}><div style={{ width:44, height:44, border:"4px solid #e2e8f0", borderTop:"4px solid #6366f1", borderRadius:"50%", margin:"0 auto 16px", animation:"spin 0.8s linear infinite" }}/><div style={{ color:"#64748b", fontWeight:600, fontFamily:"sans-serif" }}>Setting up your account…</div></div><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></div>);
   if(!user) return <LoginScreen/>;
@@ -681,6 +983,29 @@ export default function App() {
     </div>
   );
 
+  // ── Arabic translations ───────────────────────────────────────
+  const T = isArabic ? {
+    leads:"العملاء", callbacks:"المتابعات", analytics:"التحليلات",
+    agents:"الوكلاء", settings:"الإعدادات", livecalls:"المكالمات",
+    leaderboard:"المتصدرون", kpi:"أداء الوكيل", audit:"سجل التغييرات",
+    addLead:"+ إضافة عميل", search:"🔍 بحث...", total:"إجمالي العملاء",
+    interested:"مهتم", converted:"تم التحويل", callbacks2:"مواعيد",
+    digital:"عملاء رقميون", others:"آخرون", admin:"مدير",
+    signOut:"تسجيل خروج", allDisp:"كل الحالات", allSrc:"كل المصادر",
+    allAgents:"كل الوكلاء", newest:"الأحدث أولاً", nameAZ:"الاسم أ-ي",
+    mostAttempts:"أكثر محاولات", export:"📤 تصدير",
+  } : {
+    leads:"📋 Leads", callbacks:"🔁 Follow-ups", analytics:"📊 Analytics",
+    agents:"👥 Agents", settings:"⚙️ Settings", livecalls:"📞 Live Calls",
+    leaderboard:"🏆 Leaderboard", kpi:"🎯 My KPIs", audit:"📋 Audit Log",
+    addLead:"+ Add Lead", search:"🔍  Search...", total:"TOTAL LEADS",
+    interested:"INTERESTED", converted:"CONVERTED", callbacks2:"FOLLOW-UPS",
+    digital:"DIGITAL LEADS", others:"OTHERS", admin:"Admin",
+    signOut:"Sign Out", allDisp:"All Dispositions", allSrc:"All Sources",
+    allAgents:"All Agents", newest:"Newest First", nameAZ:"Name A–Z",
+    mostAttempts:"Most Attempts", export:"📤 Export",
+  };
+
   const total=leads.length,conv=leads.filter(l=>l.disposition==="Converted").length;
   const intr=leads.filter(l=>l.disposition==="Interested").length,cbs=leads.filter(l=>l.disposition==="Callback").length;
   const digital=leads.filter(l=>l.adSource==="Digital Leads").length;
@@ -690,7 +1015,7 @@ export default function App() {
   const EMPTY={serialNo:"",dateReceived:todayStr(),timeReceived:"",leadName:"",phone:"",whatsappNumber:"",email:"",gender:"Not Specified",city:"",language:"Arabic",adSource:"Digital Leads",adCampaign:"",adSet:"",product:"",disposition:"New",callbackDate:"",callbackTime:"",agent:agentName,callNotes:"",attemptCount:0,lastCallDate:"",sheetLink:"",eidNo:"",leadStatus:"",callStatus:"",salesStatus:"",remarks:""};
 
   return (
-    <div style={{ fontFamily:"'DM Sans','Segoe UI',sans-serif", background:"#f0f2f8", minHeight:"100vh" }}>
+    <div style={{ fontFamily:"'DM Sans','Segoe UI',sans-serif", background:"#f0f2f8", minHeight:"100vh", direction:isArabic?"rtl":"ltr" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Sora:wght@700;800;900&family=DM+Sans:wght@400;500;600;700;800&display=swap');
         *{box-sizing:border-box} ::-webkit-scrollbar{width:5px;height:5px} ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px}
@@ -707,13 +1032,28 @@ export default function App() {
             <div style={{ width:34, height:34, background:"linear-gradient(135deg,#6366f1,#3b82f6)", borderRadius:10, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>📲</div>
             <div><div style={{ fontWeight:900, fontSize:16, color:"#0f172a", fontFamily:"'Sora',sans-serif", lineHeight:1.1 }}>LeadFlow</div><div style={{ fontSize:9, color:"#94a3b8", fontWeight:700, letterSpacing:.4 }}>{isAdmin?"ADMIN":"TELESALES AGENT"}</div></div>
           </div>
-          <div style={{ display:"flex", gap:3, background:"#f0f2f8", borderRadius:10, padding:3 }}>
-            {navB("leads","📋 Leads")}{navB("callbacks","🔁 Follow-ups",urgentCbs)}{navB("analytics","📊 Analytics")}{isAdmin&&navB("agents","👥 Agents")}
+          <div style={{ display:"flex", gap:3, background:"#f0f2f8", borderRadius:10, padding:3, flexWrap:"wrap" }}>
+            {navB("leads",T.leads)}
+            {navB("callbacks",T.callbacks,urgentCbs)}
+            {navB("pipeline","🔁 Pipeline")}
+            {navB("livecalls",T.livecalls,liveCalls.length)}
+            {navB("analytics",T.analytics)}
+            {navB("campaigns","📣 Campaigns")}
+            {navB("leaderboard",T.leaderboard)}
+            {!isAdmin&&navB("kpi",T.kpi)}
+            {isAdmin&&navB("agents",T.agents)}
+            {isAdmin&&navB("audit",T.audit)}
+            {isAdmin&&navB("settings",T.settings)}
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-            {isAdmin&&<span style={{ background:"#fef3c7", color:"#92400e", borderRadius:8, padding:"3px 10px", fontSize:11, fontWeight:800 }}>👑 Admin</span>}
+            {isAdmin&&<span style={{ background:"#fef3c7", color:"#92400e", borderRadius:8, padding:"3px 10px", fontSize:11, fontWeight:800 }}>👑 {T.admin}</span>}
             {isAdmin&&<button onClick={()=>setShowWaAdd(true)} style={{ padding:"8px 14px", borderRadius:9, border:"none", background:"#25d366", color:"#fff", fontWeight:800, fontSize:13, cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", gap:6 }}>💬 WhatsApp Lead</button>}
-            {isAdmin&&<button onClick={()=>setShowAdd(true)} style={{ padding:"8px 16px", borderRadius:9, border:"none", background:"linear-gradient(135deg,#6366f1,#3b82f6)", color:"#fff", fontWeight:800, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}>+ Add Lead</button>}
+            {isAdmin&&<button onClick={()=>setShowImport(true)} style={{ padding:"8px 14px", borderRadius:9, border:"1.5px solid #6366f1", background:"#eef2ff", color:"#6366f1", fontWeight:800, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}>📥 Import CSV</button>}
+            {isAdmin&&<button onClick={()=>setShowAdd(true)} style={{ padding:"8px 16px", borderRadius:9, border:"none", background:"linear-gradient(135deg,#6366f1,#3b82f6)", color:"#fff", fontWeight:800, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}>{T.addLead}</button>}
+            {/* Arabic/English toggle */}
+            <button onClick={()=>{ const next=!isArabic; setIsArabic(next); localStorage.setItem("lf_lang",next?"ar":"en"); }} style={{ padding:"6px 12px", borderRadius:8, border:"1.5px solid #e2e8f0", background:"#fff", cursor:"pointer", fontWeight:700, fontSize:12, fontFamily:"inherit", color:"#475569" }}>
+              {isArabic?"EN":"ع"}
+            </button>
             <div style={{ display:"flex", alignItems:"center", gap:8, borderLeft:"1px solid #e9ecf3", paddingLeft:12 }}>
               {agentPhoto?<img src={agentPhoto} alt="" style={{ width:32, height:32, borderRadius:"50%", objectFit:"cover" }}/>:<Ava name={agentName} size={32}/>}
               <div><div style={{ fontSize:12, fontWeight:700, color:"#0f172a", lineHeight:1.2 }}>{agentName}</div><div style={{ fontSize:10, color:"#94a3b8" }}>{user.email}</div></div>
@@ -1009,7 +1349,557 @@ export default function App() {
             </div>
           </div>
         )}
+
+        {/* ── LEADERBOARD TAB ── */}
+        {tab==="leaderboard"&&(
+          <div style={{ maxWidth:800 }}>
+            <div style={{ fontWeight:900, fontSize:20, color:"#0f172a", fontFamily:"'Sora',sans-serif", marginBottom:4, direction:isArabic?"rtl":"ltr" }}>🏆 {isArabic?"لوحة المتصدرين":"Leaderboard"}</div>
+            <div style={{ fontSize:13, color:"#64748b", marginBottom:20 }}>{isArabic?"ترتيب الوكلاء حسب الأداء اليوم":"Agent ranking by performance today"}</div>
+
+            {/* Period selector */}
+            {(()=>{
+              const periods=[["today","Today","اليوم"],["week","This Week","هذا الأسبوع"],["month","This Month","هذا الشهر"],["all","All Time","الكل"]];
+              const [period,setPeriod]=useState("today");
+              const getPeriodLeads=(p)=>{
+                const now=todayStr();
+                const weekAgo=new Date(Date.now()-6*864e5).toISOString().split("T")[0];
+                const monthStart=now.slice(0,8)+"01";
+                return leads.filter(l=>p==="all"||p==="today"?l.dateReceived===now:p==="week"?l.dateReceived>=weekAgo:l.dateReceived>=monthStart);
+              };
+              const pLeads=getPeriodLeads(period);
+              const ranked=agents.filter(a=>a.role!=="admin").map(a=>{
+                const al=pLeads.filter(l=>l.agent===a.full_name);
+                const conv=al.filter(l=>l.disposition==="Converted").length;
+                const intr=al.filter(l=>l.disposition==="Interested").length;
+                const att=al.reduce((s,l)=>s+l.attemptCount,0);
+                const rate=al.length?((conv/al.length)*100).toFixed(0):0;
+                return {...a,total:al.length,conv,intr,att,rate:Number(rate)};
+              }).sort((a,b)=>b.conv-a.conv||b.intr-a.intr||b.total-a.total);
+
+              return (
+                <div>
+                  <div style={{ display:"flex", gap:6, marginBottom:20 }}>
+                    {periods.map(([id,en,ar])=>(
+                      <button key={id} onClick={()=>setPeriod(id)} style={{ padding:"7px 16px", borderRadius:8, border:"none", cursor:"pointer", fontWeight:700, fontSize:13, fontFamily:"inherit", background:period===id?"#0f172a":"#fff", color:period===id?"#fff":"#64748b", boxShadow:period===id?"0 2px 8px rgba(0,0,0,.15)":"none" }}>
+                        {isArabic?ar:en}
+                      </button>
+                    ))}
+                  </div>
+                  {ranked.map((a,i)=>{
+                    const medals=["🥇","🥈","🥉"];
+                    const medal=medals[i]||`#${i+1}`;
+                    const isMe=a.full_name===agentName;
+                    return (
+                      <div key={a.id} style={{ background:isMe?"#eef2ff":"#fff", border:isMe?"2px solid #6366f1":"1px solid #e9ecf3", borderRadius:14, padding:"16px 20px", marginBottom:10, display:"flex", alignItems:"center", gap:16, transition:"all .2s" }}>
+                        <div style={{ fontSize:28, minWidth:40, textAlign:"center" }}>{medal}</div>
+                        <div style={{ display:"flex", alignItems:"center", gap:10, flex:1 }}>
+                          {a.avatar_url?<img src={a.avatar_url} alt="" style={{ width:40,height:40,borderRadius:"50%",objectFit:"cover" }}/>:<Ava name={a.full_name} size={40}/>}
+                          <div>
+                            <div style={{ fontWeight:800, fontSize:15, color:"#0f172a" }}>{a.full_name} {isMe&&<span style={{ fontSize:11, color:"#6366f1", fontWeight:700 }}>(You)</span>}</div>
+                            <div style={{ fontSize:12, color:"#64748b" }}>{a.email}</div>
+                          </div>
+                        </div>
+                        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,64px)", gap:8, textAlign:"center" }}>
+                          {[["🏆",a.conv,isArabic?"تحويل":"Conv","#059669"],["✅",a.intr,isArabic?"مهتم":"Hot","#10b981"],["📞",a.att,isArabic?"مكالمة":"Calls","#3b82f6"],["📊",`${a.rate}%`,isArabic?"نسبة":"Rate",a.rate>=20?"#059669":"#64748b"]].map(([ico,val,lbl,c])=>(
+                            <div key={lbl} style={{ background:"#f8f9ff", borderRadius:10, padding:"8px 4px" }}>
+                              <div style={{ fontSize:16 }}>{ico}</div>
+                              <div style={{ fontWeight:900, fontSize:16, color:c, fontFamily:"'Sora',sans-serif" }}>{val}</div>
+                              <div style={{ fontSize:9, color:"#94a3b8", fontWeight:700 }}>{lbl}</div>
+                            </div>
+                          ))}
+                        </div>
+                        {/* Progress bar */}
+                        <div style={{ minWidth:100 }}>
+                          <div style={{ fontSize:10, color:"#94a3b8", marginBottom:4, fontWeight:700 }}>{isArabic?"التقدم":"PROGRESS"}</div>
+                          <div style={{ background:"#f1f5f9", borderRadius:20, height:8, overflow:"hidden" }}>
+                            <div style={{ height:"100%", width:`${Math.min(a.rate,100)}%`, background:a.rate>=20?"linear-gradient(90deg,#10b981,#059669)":"linear-gradient(90deg,#6366f1,#3b82f6)", borderRadius:20 }}/>
+                          </div>
+                          <div style={{ fontSize:10, color:"#64748b", marginTop:2 }}>{a.total} {isArabic?"عميل":"leads"}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {ranked.length===0&&<div style={{ textAlign:"center", padding:48, color:"#94a3b8" }}><div style={{ fontSize:36 }}>🏆</div><div style={{ fontWeight:600, marginTop:8 }}>{isArabic?"لا يوجد بيانات بعد":"No data yet for this period"}</div></div>}
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
+        {/* ── AGENT KPI TAB (for agents, not admin) ── */}
+        {tab==="kpi"&&!isAdmin&&(()=>{
+          const myLeads=leads.filter(l=>l.agent===agentName);
+          const myToday=myLeads.filter(l=>l.dateReceived===todayStr());
+          const myConv=myLeads.filter(l=>l.disposition==="Converted").length;
+          const myIntr=myLeads.filter(l=>l.disposition==="Interested").length;
+          const myNA=myLeads.filter(l=>l.disposition==="No Answer").length;
+          const myCb=myLeads.filter(l=>l.disposition==="Callback").length;
+          const myRate=myLeads.length?((myConv/myLeads.length)*100).toFixed(1):0;
+          const todayConv=myToday.filter(l=>l.disposition==="Converted").length;
+          return (
+            <div style={{ maxWidth:900, direction:isArabic?"rtl":"ltr" }}>
+              <div style={{ fontWeight:900, fontSize:20, color:"#0f172a", fontFamily:"'Sora',sans-serif", marginBottom:4 }}>🎯 {isArabic?"لوحة أدائي":"My KPI Dashboard"}</div>
+              <div style={{ fontSize:13, color:"#64748b", marginBottom:20 }}>{agentName}</div>
+
+              {/* KPI cards */}
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))", gap:12, marginBottom:24 }}>
+                {[
+                  ["👥",myLeads.length,isArabic?"إجمالي العملاء":"Total Leads","#6366f1"],
+                  ["🏆",myConv,isArabic?"تم التحويل":"Converted","#059669"],
+                  ["✅",myIntr,isArabic?"مهتمون":"Interested","#10b981"],
+                  ["🔁",myCb,isArabic?"مواعيد":"Callbacks","#3b82f6"],
+                  ["📵",myNA,isArabic?"لا رد":"No Answer","#8b5cf6"],
+                  ["📊",`${myRate}%`,isArabic?"نسبة التحويل":"Conv Rate","#059669"],
+                ].map(([icon,val,label,color])=>(
+                  <div key={label} style={{ background:"#fff", borderRadius:14, padding:"18px 16px", border:"1px solid #e9ecf3", textAlign:"center", position:"relative", overflow:"hidden" }}>
+                    <div style={{ position:"absolute", top:0, left:0, right:0, height:3, background:color }}/>
+                    <div style={{ fontSize:24, marginBottom:6 }}>{icon}</div>
+                    <div style={{ fontSize:26, fontWeight:900, color, fontFamily:"'Sora',sans-serif" }}>{val}</div>
+                    <div style={{ fontSize:11, color:"#64748b", fontWeight:700 }}>{label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Daily target */}
+              <div style={{ background:"#fff", borderRadius:14, border:"1px solid #e9ecf3", padding:22, marginBottom:16 }}>
+                <div style={{ fontWeight:800, fontSize:15, marginBottom:12, fontFamily:"'Sora',sans-serif" }}>🎯 {isArabic?"هدف اليوم":"Today's Target"}</div>
+                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
+                  <span style={{ fontSize:14, color:"#475569" }}>{todayConv} / {target} {isArabic?"تحويل":"conversions"}</span>
+                  <span style={{ fontWeight:800, color:todayConv>=target?"#059669":"#6366f1" }}>{todayConv>=target?"🎉 Done!":Math.round((todayConv/target)*100)+"%"}</span>
+                </div>
+                <div style={{ background:"#f1f5f9", borderRadius:20, height:14, overflow:"hidden" }}>
+                  <div style={{ height:"100%", width:`${Math.min((todayConv/target)*100,100)}%`, background:todayConv>=target?"linear-gradient(90deg,#10b981,#059669)":"linear-gradient(90deg,#6366f1,#3b82f6)", borderRadius:20, transition:"width .5s" }}/>
+                </div>
+              </div>
+
+              {/* Disposition breakdown */}
+              <div style={{ background:"#fff", borderRadius:14, border:"1px solid #e9ecf3", padding:22 }}>
+                <div style={{ fontWeight:800, fontSize:15, marginBottom:16, fontFamily:"'Sora',sans-serif" }}>{isArabic?"تفاصيل حالات العملاء":"My Lead Breakdown"}</div>
+                {DISPOSITIONS.map(d=>{ const n=myLeads.filter(l=>l.disposition===d.label).length; const p=myLeads.length?(n/myLeads.length)*100:0; return n>0?(<div key={d.label} style={{ marginBottom:10 }}><div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}><span style={{ fontSize:13, fontWeight:600, color:"#475569" }}>{d.icon} {d.label}</span><span style={{ fontSize:12, fontWeight:800, color:d.color }}>{n} ({p.toFixed(0)}%)</span></div><div style={{ background:"#f1f5f9", borderRadius:6, height:7, overflow:"hidden" }}><div style={{ height:"100%", width:`${p}%`, background:d.color, borderRadius:6 }}/></div></div>):null; })}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ── AUDIT LOG TAB ── */}
+        {tab==="audit"&&isAdmin&&(
+          <div>
+            <div style={{ fontWeight:900, fontSize:20, color:"#0f172a", fontFamily:"'Sora',sans-serif", marginBottom:20, direction:isArabic?"rtl":"ltr" }}>📋 {isArabic?"سجل التغييرات":"Audit Log"}</div>
+            <div style={{ background:"#fff", borderRadius:14, border:"1px solid #e9ecf3", overflow:"hidden" }}>
+              <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
+                <thead><tr style={{ background:"#f8f9ff", borderBottom:"1.5px solid #e9ecf3" }}>
+                  {[isArabic?"الوقت":"Time", isArabic?"الإجراء":"Action", isArabic?"العميل":"Lead", isArabic?"التفاصيل":"Detail", isArabic?"بواسطة":"By"].map(h=>(
+                    <th key={h} style={{ padding:"11px 14px", textAlign:isArabic?"right":"left", fontSize:10, fontWeight:800, color:"#6366f1", letterSpacing:.5 }}>{h}</th>
+                  ))}
+                </tr></thead>
+                <tbody>
+                  {auditLog.map((log,i)=>{
+                    const actionColor={ADD:"#10b981",UPDATE:"#3b82f6",DELETE:"#ef4444"};
+                    const actionIcon={ADD:"➕",UPDATE:"✏️",DELETE:"🗑️"};
+                    return (
+                      <tr key={i} style={{ borderBottom:"1px solid #f1f5f9" }}>
+                        <td style={{ padding:"10px 14px", fontSize:11, color:"#64748b", whiteSpace:"nowrap" }}>{new Date(log.time).toLocaleString()}</td>
+                        <td style={{ padding:"10px 14px" }}><span style={{ background:actionColor[log.action]+"18", color:actionColor[log.action], borderRadius:6, padding:"2px 8px", fontSize:11, fontWeight:800 }}>{actionIcon[log.action]} {log.action}</span></td>
+                        <td style={{ padding:"10px 14px", fontWeight:700 }}>{log.leadName}</td>
+                        <td style={{ padding:"10px 14px", fontSize:12, color:"#475569" }}>{log.detail}</td>
+                        <td style={{ padding:"10px 14px" }}><div style={{ display:"flex", alignItems:"center", gap:6 }}><Ava name={log.by||"?"} size={22}/><span style={{ fontSize:12 }}>{log.by}</span></div></td>
+                      </tr>
+                    );
+                  })}
+                  {auditLog.length===0&&<tr><td colSpan={5} style={{ padding:44, textAlign:"center", color:"#94a3b8", fontStyle:"italic" }}>No audit entries yet</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ── PIPELINE TAB ── */}
+        {tab==="pipeline"&&(
+          <div>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+              <div style={{ fontWeight:900, fontSize:20, color:"#0f172a", fontFamily:"'Sora',sans-serif" }}>🔁 Lead Pipeline</div>
+              <div style={{ fontSize:13, color:"#64748b" }}>{filtered.length} leads · drag view</div>
+            </div>
+            <div style={{ overflowX:"auto", paddingBottom:8 }}>
+              <div style={{ display:"flex", gap:12, minWidth:Math.max(900, ACTIVE_DISPS.length*180) }}>
+                {ACTIVE_DISPS.map(disp=>{
+                  const stageLeads = filtered.filter(l=>l.disposition===disp.label);
+                  const stageVal = stageLeads.length;
+                  return (
+                    <div key={disp.label} style={{ flex:1, minWidth:180 }}>
+                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10, padding:"0 2px" }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                          <div style={{ width:8, height:8, borderRadius:"50%", background:disp.color }}/>
+                          <span style={{ fontSize:11, fontWeight:800, color:"#475569", letterSpacing:.3 }}>{disp.icon} {disp.label.toUpperCase()}</span>
+                        </div>
+                        <span style={{ background:disp.bg, color:disp.color, borderRadius:10, padding:"1px 8px", fontSize:11, fontWeight:700 }}>{stageVal}</span>
+                      </div>
+                      <div style={{ background:"#f1f5f9", borderRadius:12, padding:10, minHeight:120 }}>
+                        {stageLeads.slice(0,10).map(l=>(
+                          <div key={l.id} onClick={()=>setDetail(l)} style={{ background:"#fff", borderRadius:10, padding:"12px 14px", marginBottom:8, cursor:"pointer", border:"1px solid #e9ecf3", borderLeft:`3px solid ${disp.color}`, boxShadow:"0 1px 4px rgba(0,0,0,.05)", transition:"all .15s" }}
+                            onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 12px rgba(0,0,0,.1)";e.currentTarget.style.transform="translateY(-2px)";}}
+                            onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 1px 4px rgba(0,0,0,.05)";e.currentTarget.style.transform="none";}}>
+                            <div style={{ fontWeight:700, fontSize:13, color:"#0f172a", marginBottom:3 }}>{l.leadName}</div>
+                            <div style={{ fontSize:11, color:"#64748b", marginBottom:6 }}>{l.phone}</div>
+                            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                              <span style={{ fontSize:10, color:"#94a3b8" }}>{l.dateReceived}</span>
+                              <Ava name={l.agent||"?"} size={20}/>
+                            </div>
+                            {l.callbackDate&&<div style={{ fontSize:10, color:disp.color, fontWeight:700, marginTop:4 }}>📅 {l.callbackDate}</div>}
+                          </div>
+                        ))}
+                        {stageLeads.length>10&&<div style={{ textAlign:"center", fontSize:11, color:"#94a3b8", padding:8 }}>+{stageLeads.length-10} more</div>}
+                        {stageLeads.length===0&&<div style={{ textAlign:"center", fontSize:11, color:"#cbd5e1", padding:16 }}>Empty</div>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── CAMPAIGN PERFORMANCE TAB ── */}
+        {tab==="campaigns"&&(
+          <div>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+              <div style={{ fontWeight:900, fontSize:20, color:"#0f172a", fontFamily:"'Sora',sans-serif" }}>📣 Campaign Performance</div>
+              <button onClick={()=>{
+                // PDF export of campaign report
+                const rows = [["Campaign","Ad Set","Total Leads","Interested","Converted","Conv Rate","No Answer","Not Interested"]];
+                const camps={};
+                leads.forEach(l=>{ const k=l.adCampaign||"Unknown"; if(!camps[k]) camps[k]={total:0,intr:0,conv:0,na:0,ni:0,sets:{}}; camps[k].total++; if(l.disposition==="Interested") camps[k].intr++; if(l.disposition==="Converted") camps[k].conv++; if(l.disposition==="No Answer") camps[k].na++; if(l.disposition==="Not Interested") camps[k].ni++; if(l.adSet){ if(!camps[k].sets[l.adSet]) camps[k].sets[l.adSet]=0; camps[k].sets[l.adSet]++; } });
+                Object.entries(camps).forEach(([name,d])=>{ rows.push([name,Object.keys(d.sets).join(", "),d.total,d.intr,d.conv,`${d.total?((d.conv/d.total)*100).toFixed(0):0}%`,d.na,d.ni]); });
+                const csv=rows.map(r=>r.map(v=>`"${v}"`).join(",")).join("\n");
+                const blob=new Blob([csv],{type:"text/csv"});
+                const url=URL.createObjectURL(blob);
+                const a=document.createElement("a"); a.href=url; a.download=`campaign_report_${todayStr()}.csv`; a.click();
+                URL.revokeObjectURL(url);
+                showToast("✅ Campaign report exported!");
+              }} style={{ padding:"8px 16px", borderRadius:8, border:"none", background:"#ecfdf5", color:"#059669", cursor:"pointer", fontWeight:700, fontSize:13, fontFamily:"inherit" }}>📤 Export CSV</button>
+            </div>
+
+            {(()=>{
+              const camps={};
+              leads.forEach(l=>{
+                const k=l.adCampaign||"(No Campaign)";
+                if(!camps[k]) camps[k]={name:k,total:0,intr:0,conv:0,na:0,ni:0,cb:0,sets:{}};
+                camps[k].total++;
+                if(l.disposition==="Interested")     camps[k].intr++;
+                if(l.disposition==="Converted")      camps[k].conv++;
+                if(l.disposition==="No Answer")      camps[k].na++;
+                if(l.disposition==="Not Interested") camps[k].ni++;
+                if(l.disposition==="Callback")       camps[k].cb++;
+                if(l.adSet){ if(!camps[k].sets[l.adSet]) camps[k].sets[l.adSet]=0; camps[k].sets[l.adSet]++; }
+              });
+              const sorted=Object.values(camps).sort((a,b)=>b.conv-a.conv||b.total-a.total);
+              const maxTotal=Math.max(...sorted.map(c=>c.total),1);
+
+              return (
+                <div>
+                  {/* Summary cards */}
+                  <div style={{ display:"flex", gap:10, marginBottom:20, flexWrap:"wrap" }}>
+                    {[["📣",Object.keys(camps).length,"Campaigns","#6366f1"],["👥",leads.length,"Total Leads","#3b82f6"],["🏆",leads.filter(l=>l.disposition==="Converted").length,"Converted","#059669"],["📊",`${leads.length?((leads.filter(l=>l.disposition==="Converted").length/leads.length)*100).toFixed(1):0}%`,"Overall Rate","#10b981"]].map(([ico,val,lbl,c])=>(
+                      <div key={lbl} style={{ background:"#fff", borderRadius:13, padding:"16px 20px", flex:1, minWidth:130, border:"1px solid #e9ecf3", position:"relative", overflow:"hidden" }}>
+                        <div style={{ position:"absolute", top:0, left:0, width:3, height:"100%", background:c }}/>
+                        <div style={{ fontSize:20, marginBottom:4 }}>{ico}</div>
+                        <div style={{ fontSize:24, fontWeight:900, color:c, fontFamily:"'Sora',sans-serif" }}>{val}</div>
+                        <div style={{ fontSize:11, color:"#94a3b8", fontWeight:700 }}>{lbl}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Campaign cards */}
+                  <div style={{ display:"grid", gap:14 }}>
+                    {sorted.map((c,i)=>{
+                      const rate=c.total?((c.conv/c.total)*100).toFixed(1):0;
+                      const hotRate=c.total?(((c.conv+c.intr)/c.total)*100).toFixed(0):0;
+                      return (
+                        <div key={c.name} style={{ background:"#fff", borderRadius:14, border:"1px solid #e9ecf3", padding:22 }}>
+                          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:16 }}>
+                            <div>
+                              <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:4 }}>
+                                <span style={{ fontWeight:900, fontSize:16 }}>#{i+1}</span>
+                                <span style={{ fontWeight:800, fontSize:16, color:"#0f172a" }}>{c.name}</span>
+                                {c.conv>0&&<span style={{ background:"#d1fae5", color:"#059669", borderRadius:20, padding:"2px 10px", fontSize:11, fontWeight:800 }}>🏆 Top Performer</span>}
+                              </div>
+                              <div style={{ fontSize:12, color:"#64748b" }}>Ad Sets: {Object.keys(c.sets).join(", ")||"—"}</div>
+                            </div>
+                            <div style={{ textAlign:"right" }}>
+                              <div style={{ fontSize:28, fontWeight:900, color:Number(rate)>=20?"#059669":"#6366f1", fontFamily:"'Sora',sans-serif" }}>{rate}%</div>
+                              <div style={{ fontSize:11, color:"#94a3b8" }}>Conv Rate</div>
+                            </div>
+                          </div>
+
+                          {/* Metrics row */}
+                          <div style={{ display:"grid", gridTemplateColumns:"repeat(6,1fr)", gap:8, marginBottom:16 }}>
+                            {[["Total",c.total,"#6366f1"],["Converted",c.conv,"#059669"],["Interested",c.intr,"#10b981"],["Callback",c.cb,"#3b82f6"],["No Answer",c.na,"#8b5cf6"],["Not Int.",c.ni,"#ef4444"]].map(([lbl,val,color])=>(
+                              <div key={lbl} style={{ background:"#f8f9ff", borderRadius:8, padding:"10px 6px", textAlign:"center" }}>
+                                <div style={{ fontWeight:900, fontSize:20, color, fontFamily:"'Sora',sans-serif" }}>{val}</div>
+                                <div style={{ fontSize:9, color:"#94a3b8", fontWeight:700 }}>{lbl.toUpperCase()}</div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Visual bars */}
+                          <div style={{ marginBottom:8 }}>
+                            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                              <span style={{ fontSize:12, color:"#475569", fontWeight:600 }}>Lead Volume</span>
+                              <span style={{ fontSize:12, color:"#6366f1", fontWeight:700 }}>{c.total} leads</span>
+                            </div>
+                            <div style={{ background:"#f1f5f9", borderRadius:8, height:10, overflow:"hidden" }}>
+                              <div style={{ height:"100%", width:`${(c.total/maxTotal)*100}%`, background:"linear-gradient(90deg,#6366f1,#3b82f6)", borderRadius:8 }}/>
+                            </div>
+                          </div>
+                          <div>
+                            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                              <span style={{ fontSize:12, color:"#475569", fontWeight:600 }}>Hot Leads (Conv+Int)</span>
+                              <span style={{ fontSize:12, color:"#059669", fontWeight:700 }}>{hotRate}%</span>
+                            </div>
+                            <div style={{ background:"#f1f5f9", borderRadius:8, height:10, overflow:"hidden", display:"flex" }}>
+                              <div style={{ height:"100%", width:`${c.total?((c.conv/c.total)*100):0}%`, background:"#059669" }}/>
+                              <div style={{ height:"100%", width:`${c.total?((c.intr/c.total)*100):0}%`, background:"#10b981" }}/>
+                            </div>
+                            <div style={{ display:"flex", gap:12, marginTop:4, fontSize:10 }}>
+                              <span style={{ color:"#059669" }}>■ Converted {c.conv}</span>
+                              <span style={{ color:"#10b981" }}>■ Interested {c.intr}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {sorted.length===0&&<div style={{ textAlign:"center", padding:48, color:"#94a3b8" }}><div style={{ fontSize:36, marginBottom:8 }}>📣</div><div style={{ fontWeight:600 }}>No campaign data yet</div></div>}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
+        {/* ── LIVE CALLS TAB ── */}
+        {tab==="livecalls"&&(
+          <div>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+              <div style={{ fontWeight:900, fontSize:20, color:"#0f172a", fontFamily:"'Sora',sans-serif" }}>📞 Live Call Monitor</div>
+              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, color: ngrokUrl?"#10b981":"#ef4444", fontWeight:700 }}>
+                  <div style={{ width:8, height:8, borderRadius:"50%", background: ngrokUrl?"#10b981":"#ef4444", animation:"pulse 1.5s infinite" }}/>
+                  {ngrokUrl ? "Bridge Connected" : "Bridge URL not set — go to Settings"}
+                </div>
+                <button onClick={async()=>{
+                  if(!ngrokUrl){ showToast("Set Ngrok URL in Settings first","error"); return; }
+                  try { const r=await fetch(`${ngrokUrl}/live-calls`); const d=await r.json(); const c=d?.data||d?.calls||d||[]; if(Array.isArray(c)) setLiveCalls(c); showToast("✅ Refreshed"); } catch(e){ showToast("Bridge offline","error"); }
+                }} style={{ padding:"7px 14px", borderRadius:8, border:"1.5px solid #e2e8f0", background:"#fff", cursor:"pointer", fontWeight:700, fontSize:13, fontFamily:"inherit" }}>🔄 Refresh</button>
+              </div>
+            </div>
+
+            {/* Live call cards */}
+            {liveCalls.length > 0 ? (
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))", gap:14, marginBottom:24 }}>
+                {liveCalls.map((call,i)=>{
+                  const started = call.start_time ? new Date(call.start_time) : null;
+                  const secs = started ? Math.floor((Date.now()-started)/1000) : 0;
+                  const dur = `${Math.floor(secs/60).toString().padStart(2,"0")}:${(secs%60).toString().padStart(2,"0")}`;
+                  const isRinging = call.status==="ringing";
+                  return (
+                    <div key={i} style={{ background:"#fff", borderRadius:14, border:`2px solid ${isRinging?"#f59e0b":"#10b981"}`, padding:18 }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                          <div style={{ width:10, height:10, borderRadius:"50%", background:isRinging?"#f59e0b":"#10b981", animation:"pulse 1s infinite" }}/>
+                          <span style={{ fontWeight:800, fontSize:13, color:isRinging?"#f59e0b":"#10b981" }}>{isRinging?"RINGING":"ON CALL"}</span>
+                        </div>
+                        {!isRinging&&<span style={{ fontWeight:900, fontSize:18, color:"#0f172a", fontFamily:"'Sora',sans-serif" }}>{dur}</span>}
+                      </div>
+                      <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:10 }}>
+                        <Ava name={call.caller_name||call.ext||"?"} size={36}/>
+                        <div>
+                          <div style={{ fontWeight:700, fontSize:14 }}>{call.caller_name||`Ext ${call.ext||"?"}`}</div>
+                          <div style={{ fontSize:12, color:"#64748b" }}>Ext: {call.ext||"—"}</div>
+                        </div>
+                      </div>
+                      <div style={{ background:"#f8f9ff", borderRadius:8, padding:"8px 12px", marginBottom:10 }}>
+                        <div style={{ fontSize:10, color:"#94a3b8", fontWeight:700 }}>CALLING</div>
+                        <div style={{ fontWeight:700, fontSize:14 }}>{call.callee||call.number||"Unknown"}</div>
+                      </div>
+                      {/* Find matching lead */}
+                      {(()=>{
+                        const matchLead = leads.find(l=>(l.phone||"").replace(/\D/g,"").slice(-9)===(call.callee||"").replace(/\D/g,"").slice(-9));
+                        return matchLead ? (
+                          <div style={{ background:"#ecfdf5", border:"1px solid #bbf7d0", borderRadius:8, padding:"8px 12px", fontSize:12 }}>
+                            <div style={{ fontWeight:700, color:"#059669" }}>✅ Lead Match: {matchLead.leadName}</div>
+                            <div style={{ color:"#64748b" }}>{matchLead.disposition}</div>
+                          </div>
+                        ) : (
+                          <div style={{ background:"#fef3c7", border:"1px solid #fde68a", borderRadius:8, padding:"8px 12px", fontSize:12 }}>
+                            <div style={{ fontWeight:700, color:"#92400e" }}>⚠️ No lead match found</div>
+                            {isAdmin&&<button onClick={()=>{ window.__waPrefill={...EMPTY,phone:call.callee||"",whatsappNumber:call.callee||"",agent:call.caller_name||agentName}; setShowAdd(true); }} style={{ marginTop:6, padding:"4px 10px", borderRadius:6, border:"none", background:"#6366f1", color:"#fff", cursor:"pointer", fontWeight:700, fontSize:11, fontFamily:"inherit" }}>+ Create Lead</button>}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{ textAlign:"center", padding:60, color:"#94a3b8" }}>
+                <div style={{ fontSize:48, marginBottom:12 }}>📵</div>
+                <div style={{ fontWeight:700, fontSize:16, marginBottom:4 }}>No active calls right now</div>
+                <div style={{ fontSize:13 }}>When agents on extensions 500-599 are on calls, they'll appear here live</div>
+              </div>
+            )}
+
+            {/* Recent call logs from Supabase */}
+            <div style={{ background:"#fff", borderRadius:14, border:"1px solid #e9ecf3", padding:22 }}>
+              <div style={{ fontWeight:800, fontSize:15, marginBottom:16, fontFamily:"'Sora',sans-serif" }}>📋 Recent Call History</div>
+              <CallHistory leads={leads} supabase={supabase} ngrokUrl={ngrokUrl} isAdmin={isAdmin} agentName={agentName} EMPTY={EMPTY} setShowAdd={setShowAdd} showToast={showToast}/>
+            </div>
+          </div>
+        )}
+
+        {/* ── SETTINGS TAB ── */}
+        {tab==="settings"&&isAdmin&&(
+          <div style={{ maxWidth:700 }}>
+            <div style={{ fontWeight:900, fontSize:20, color:"#0f172a", fontFamily:"'Sora',sans-serif", marginBottom:20 }}>⚙️ Settings</div>
+
+            {/* Custom Dispositions */}
+            <div style={{ background:"#fff", borderRadius:14, border:"1px solid #e9ecf3", padding:24, marginBottom:16 }}>
+              <div style={{ fontWeight:800, fontSize:15, marginBottom:4, fontFamily:"'Sora',sans-serif" }}>🎨 Custom Dispositions</div>
+              <div style={{ fontSize:13, color:"#64748b", marginBottom:16 }}>Add, rename or remove call outcome labels. Changes apply instantly across the whole system.</div>
+              <CustomDispositions current={ACTIVE_DISPS} onChange={disps=>{ setCustomDisps(disps); localStorage.setItem("lf_disps",JSON.stringify(disps)); showToast("✅ Dispositions updated!"); }} onReset={()=>{ setCustomDisps(null); localStorage.removeItem("lf_disps"); showToast("✅ Reset to defaults"); }}/>
+            </div>
+
+            {/* Auto Lead Rotation */}
+            <div style={{ background:"#fff", borderRadius:14, border:"1px solid #e9ecf3", padding:24, marginBottom:16 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
+                <div style={{ fontWeight:800, fontSize:15, fontFamily:"'Sora',sans-serif" }}>🔄 {isArabic?"التوزيع التلقائي للعملاء":"Auto Lead Rotation"}</div>
+                <div onClick={()=>{ const next=!rotationEnabled; setRotationEnabled(next); localStorage.setItem("lf_rotation",next?"1":"0"); showToast(next?"✅ Auto-rotation ON":"⭕ Auto-rotation OFF"); }}
+                  style={{ width:44, height:24, borderRadius:12, background:rotationEnabled?"#10b981":"#e2e8f0", cursor:"pointer", position:"relative", transition:"background .2s" }}>
+                  <div style={{ width:18, height:18, borderRadius:"50%", background:"#fff", position:"absolute", top:3, left:rotationEnabled?23:3, transition:"left .2s", boxShadow:"0 1px 4px rgba(0,0,0,.2)" }}/>
+                </div>
+              </div>
+              <div style={{ fontSize:13, color:"#64748b" }}>
+                {isArabic?"تلقائياً يوزع العملاء غير المعينين على الوكلاء كل 5 دقائق":"Automatically distributes unassigned leads to agents every 5 minutes in round-robin order"}
+              </div>
+              <div style={{ marginTop:10, fontSize:12, background:rotationEnabled?"#ecfdf5":"#f8fafc", borderRadius:8, padding:"8px 12px", color:rotationEnabled?"#059669":"#94a3b8", fontWeight:600 }}>
+                {rotationEnabled?"🟢 Active — checking every 5 minutes":"⭕ Disabled"}
+              </div>
+            </div>
+
+            {/* Language */}
+            <div style={{ background:"#fff", borderRadius:14, border:"1px solid #e9ecf3", padding:24, marginBottom:16 }}>
+              <div style={{ fontWeight:800, fontSize:15, marginBottom:8, fontFamily:"'Sora',sans-serif" }}>🌐 {isArabic?"اللغة":"Language"}</div>
+              <div style={{ display:"flex", gap:10 }}>
+                {[["en","English 🇬🇧"],["ar","العربية 🇦🇪"]].map(([code,label])=>(
+                  <button key={code} onClick={()=>{ setIsArabic(code==="ar"); localStorage.setItem("lf_lang",code); }} style={{ padding:"10px 24px", borderRadius:10, border:"none", cursor:"pointer", fontWeight:700, fontSize:14, fontFamily:"inherit", background:(code==="ar"&&isArabic)||(code==="en"&&!isArabic)?"linear-gradient(135deg,#6366f1,#3b82f6)":"#f1f5f9", color:(code==="ar"&&isArabic)||(code==="en"&&!isArabic)?"#fff":"#64748b" }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Yeastar Bridge URL */}
+            <div style={{ background:"#fff", borderRadius:14, border:"1px solid #e9ecf3", padding:24, marginBottom:16 }}>
+              <div style={{ fontWeight:800, fontSize:15, marginBottom:4, fontFamily:"'Sora',sans-serif" }}>📞 Yeastar Bridge URL (Ngrok)</div>
+              <div style={{ fontSize:13, color:"#64748b", marginBottom:16 }}>Paste your current Ngrok URL here. Update this every time you restart Ngrok.</div>
+              <div style={{ display:"flex", gap:10 }}>
+                <input
+                  value={ngrokUrl}
+                  onChange={e=>setNgrokUrl(e.target.value)}
+                  placeholder="https://xxxx.ngrok-free.dev"
+                  style={{ flex:1, border:"1.5px solid #e2e8f0", borderRadius:8, padding:"10px 14px", fontSize:14, fontFamily:"inherit", outline:"none" }}
+                />
+                <button onClick={async()=>{
+                  localStorage.setItem("lf_ngrok", ngrokUrl);
+                  try {
+                    const r = await fetch(`${ngrokUrl}/health`);
+                    const d = await r.json();
+                    showToast(`✅ Connected! ${d.status}`);
+                  } catch(e){ showToast("⚠️ Could not reach bridge — check URL","error"); }
+                }} style={{ padding:"10px 20px", borderRadius:8, border:"none", background:"linear-gradient(135deg,#6366f1,#3b82f6)", color:"#fff", cursor:"pointer", fontWeight:800, fontSize:13, fontFamily:"inherit" }}>
+                  Save & Test
+                </button>
+              </div>
+              {ngrokUrl && (
+                <div style={{ marginTop:12, display:"flex", gap:8, flexWrap:"wrap" }}>
+                  <a href={`${ngrokUrl}/health`} target="_blank" rel="noreferrer" style={{ fontSize:12, color:"#6366f1", fontWeight:700 }}>🔗 Health Check</a>
+                  <a href={`${ngrokUrl}/extensions`} target="_blank" rel="noreferrer" style={{ fontSize:12, color:"#6366f1", fontWeight:700 }}>🔗 Extensions</a>
+                  <a href={`${ngrokUrl}/live-calls`} target="_blank" rel="noreferrer" style={{ fontSize:12, color:"#6366f1", fontWeight:700 }}>🔗 Live Calls</a>
+                  <a href={`${ngrokUrl}/cdr`} target="_blank" rel="noreferrer" style={{ fontSize:12, color:"#6366f1", fontWeight:700 }}>🔗 CDR</a>
+                </div>
+              )}
+            </div>
+
+            {/* Yeastar Webhook reminder */}
+            <div style={{ background:"#fffbeb", border:"1px solid #fde68a", borderRadius:14, padding:22, marginBottom:16 }}>
+              <div style={{ fontWeight:800, fontSize:15, marginBottom:8, fontFamily:"'Sora',sans-serif" }}>⚠️ Remember — Update Yeastar Too!</div>
+              <div style={{ fontSize:13, color:"#78350f", marginBottom:10 }}>Every time Ngrok URL changes, you must also update it in your Yeastar P570 panel:</div>
+              <div style={{ fontSize:13, color:"#0f172a", fontWeight:600 }}>
+                Yeastar Panel → Integrations → API → Webhook Event Push → URL:
+              </div>
+              <div style={{ background:"#fff", borderRadius:8, padding:"10px 14px", marginTop:8, fontFamily:"monospace", fontSize:13, color:"#6366f1", wordBreak:"break-all" }}>
+                {ngrokUrl ? `${ngrokUrl}/yeastar-webhook` : "https://YOUR-NGROK-URL/yeastar-webhook"}
+              </div>
+            </div>
+
+            {/* Extension to Agent mapping */}
+            <div style={{ background:"#fff", borderRadius:14, border:"1px solid #e9ecf3", padding:24, marginBottom:16 }}>
+              <div style={{ fontWeight:800, fontSize:15, marginBottom:4, fontFamily:"'Sora',sans-serif" }}>🔢 Agent Extension Mapping</div>
+              <div style={{ fontSize:13, color:"#64748b", marginBottom:16 }}>Link each agent's extension number so call logs show their name automatically.</div>
+              <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
+                <thead><tr style={{ borderBottom:"1px solid #f1f5f9" }}>
+                  {["Agent","Email","Extension"].map(h=><th key={h} style={{ padding:"8px 10px", textAlign:"left", fontSize:11, fontWeight:800, color:"#94a3b8" }}>{h}</th>)}
+                </tr></thead>
+                <tbody>
+                  {agents.filter(a=>a.role!=="admin").map(a=>(
+                    <tr key={a.id} style={{ borderBottom:"1px solid #f8f9fc" }}>
+                      <td style={{ padding:"10px 10px" }}><div style={{ display:"flex", alignItems:"center", gap:8 }}><Ava name={a.full_name} size={26}/><span style={{ fontWeight:700 }}>{a.full_name}</span></div></td>
+                      <td style={{ padding:"10px 10px", color:"#64748b", fontSize:12 }}>{a.email}</td>
+                      <td style={{ padding:"10px 10px" }}>
+                        <input
+                          defaultValue={a.extension||""}
+                          placeholder="e.g. 501"
+                          onBlur={async e=>{
+                            const ext = e.target.value.trim();
+                            await supabase.from("agents").update({extension:ext}).eq("id",a.id);
+                            setAgents(ls=>ls.map(x=>x.id===a.id?{...x,extension:ext}:x));
+                            showToast(`✅ Extension ${ext} assigned to ${a.full_name}`);
+                          }}
+                          style={{ width:100, border:"1.5px solid #e2e8f0", borderRadius:6, padding:"6px 10px", fontSize:13, fontFamily:"inherit", outline:"none" }}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Google Sheet settings */}
+            <div style={{ background:"#fff", borderRadius:14, border:"1px solid #e9ecf3", padding:24 }}>
+              <div style={{ fontWeight:800, fontSize:15, marginBottom:4, fontFamily:"'Sora',sans-serif" }}>📊 Google Sheet</div>
+              <div style={{ fontSize:13, color:"#64748b", marginBottom:10 }}>Currently syncing from:</div>
+              <a href={`https://docs.google.com/spreadsheets/d/${SHEET_ID}`} target="_blank" rel="noreferrer"
+                style={{ display:"inline-flex", alignItems:"center", gap:6, background:"#e8f5e9", color:"#2e7d32", borderRadius:8, padding:"8px 16px", textDecoration:"none", fontWeight:700, fontSize:13 }}>
+                📊 Open Google Sheet
+              </a>
+            </div>
+          </div>
+        )}
       </div>
+
+      <Modal show={showImport} onClose={()=>setShowImport(false)} width={660}>
+        <ImportCSV onClose={()=>setShowImport(false)} onImport={async rows=>{
+          let added=0;
+          for(const row of rows){
+            const {error}=await supabase.from("leads").insert(toDb({...EMPTY,...row,agent:row.agent||agentName}));
+            if(!error) added++;
+          }
+          setShowImport(false);
+          const {data}=await supabase.from("leads").select("*").order("created_at",{ascending:false});
+          setLeads((data||[]).map(fromDb));
+          showToast(`✅ Imported ${added} leads!`);
+          logAudit("IMPORT",`${added} leads`,`Bulk import by ${agentName}`);
+        }} EMPTY={EMPTY}/>
+      </Modal>
 
       <Modal show={showWaAdd} onClose={()=>{setShowWaAdd(false);setWaPhone("");}} width={480}>
         <div style={{ padding:28 }}>
