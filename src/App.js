@@ -628,7 +628,8 @@ export default function App() {
   const [customDisps,setCustomDisps] = useState(()=>{
     try{ return JSON.parse(localStorage.getItem("lf_disps")||"null")||null; }catch{ return null; }
   });
-  // Import
+  // Leaderboard period state
+  const [lbPeriod,setLbPeriod] = useState("today");
   const [showImport,setShowImport] = useState(false);
   const [showAdd,setShowAdd]     = useState(false);
   const [showWaAdd,setShowWaAdd] = useState(false);
@@ -1359,14 +1360,13 @@ export default function App() {
             {/* Period selector */}
             {(()=>{
               const periods=[["today","Today","اليوم"],["week","This Week","هذا الأسبوع"],["month","This Month","هذا الشهر"],["all","All Time","الكل"]];
-              const [period,setPeriod]=useState("today");
               const getPeriodLeads=(p)=>{
                 const now=todayStr();
                 const weekAgo=new Date(Date.now()-6*864e5).toISOString().split("T")[0];
                 const monthStart=now.slice(0,8)+"01";
-                return leads.filter(l=>p==="all"||p==="today"?l.dateReceived===now:p==="week"?l.dateReceived>=weekAgo:l.dateReceived>=monthStart);
+                return leads.filter(l=>p==="all"?true:p==="today"?l.dateReceived===now:p==="week"?l.dateReceived>=weekAgo:l.dateReceived>=monthStart);
               };
-              const pLeads=getPeriodLeads(period);
+              const pLeads=getPeriodLeads(lbPeriod);
               const ranked=agents.filter(a=>a.role!=="admin").map(a=>{
                 const al=pLeads.filter(l=>l.agent===a.full_name);
                 const conv=al.filter(l=>l.disposition==="Converted").length;
@@ -1380,7 +1380,7 @@ export default function App() {
                 <div>
                   <div style={{ display:"flex", gap:6, marginBottom:20 }}>
                     {periods.map(([id,en,ar])=>(
-                      <button key={id} onClick={()=>setPeriod(id)} style={{ padding:"7px 16px", borderRadius:8, border:"none", cursor:"pointer", fontWeight:700, fontSize:13, fontFamily:"inherit", background:period===id?"#0f172a":"#fff", color:period===id?"#fff":"#64748b", boxShadow:period===id?"0 2px 8px rgba(0,0,0,.15)":"none" }}>
+                      <button key={id} onClick={()=>setLbPeriod(id)} style={{ padding:"7px 16px", borderRadius:8, border:"none", cursor:"pointer", fontWeight:700, fontSize:13, fontFamily:"inherit", background:lbPeriod===id?"#0f172a":"#fff", color:lbPeriod===id?"#fff":"#64748b", boxShadow:lbPeriod===id?"0 2px 8px rgba(0,0,0,.15)":"none" }}>
                         {isArabic?ar:en}
                       </button>
                     ))}
