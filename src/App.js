@@ -609,7 +609,7 @@ function PreRegisterAgent({ onSave }) {
 }
 
 // ── MAIN APP ──────────────────────────────────────────────────────────────────
-export default function App() {
+function App() {
   const [user,setUser]           = useState(null);
   const [authLoading,setAuthLoading] = useState(true);
   const [needsName,setNeedsName] = useState(false);
