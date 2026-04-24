@@ -1384,7 +1384,7 @@ function App() {
                       <td style={{ padding:"10px 12px" }}>
                         <div style={{ display:"flex", gap:4 }}>
                           <button onClick={()=>setDispLead(l)} style={{ padding:"4px 8px", borderRadius:6, border:"none", background:"#eff6ff", color:"#1d4ed8", cursor:"pointer", fontWeight:700, fontSize:11, fontFamily:"inherit" }}>Update</button>
-                          {isAdmin&&<button onClick={()=>setEditLead(l)} style={{ padding:"4px 8px", borderRadius:6, border:"none", background:"#f1f5f9", color:"#475569", cursor:"pointer", fontWeight:700, fontSize:11, fontFamily:"inherit" }}>Edit</button>}
+                          {(isAdmin||l.agent===agentName)&&<button onClick={()=>setEditLead(l)} style={{ padding:"4px 8px", borderRadius:6, border:"none", background:"#f1f5f9", color:"#475569", cursor:"pointer", fontWeight:700, fontSize:11, fontFamily:"inherit" }}>Edit</button>}
                           {isAdmin&&<button onClick={()=>setDelLead(l)} style={{ padding:"4px 8px", borderRadius:6, border:"none", background:"#fef2f2", color:"#ef4444", cursor:"pointer", fontWeight:700, fontSize:11, fontFamily:"inherit" }}>Del</button>}
                         </div>
                       </td>
@@ -2237,7 +2237,7 @@ function App() {
           <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:4 }}>
             <a href={`https://wa.me/${(detail.whatsappNumber||detail.phone||"").replace(/\D/g,"")}`} target="_blank" rel="noreferrer" style={{ padding:"9px 15px", borderRadius:8, background:"#25d366", color:"#fff", fontWeight:800, fontSize:13, textDecoration:"none" }}>W Chat</a>
             <button onClick={()=>{setDispLead(detail);setDetail(null);}} style={{ padding:"9px 15px", borderRadius:8, border:"none", background:"#eff6ff", color:"#1d4ed8", cursor:"pointer", fontWeight:800, fontSize:13, fontFamily:"inherit" }}>Update Status</button>
-            {isAdmin&&<button onClick={()=>{setEditLead(detail);setDetail(null);}} style={{ padding:"9px 15px", borderRadius:8, border:"none", background:"#0f172a", color:"#fff", cursor:"pointer", fontWeight:800, fontSize:13, fontFamily:"inherit" }}>Edit Lead</button>}
+            {(isAdmin||detail?.agent===agentName)&&<button onClick={()=>{setEditLead(detail);setDetail(null);}} style={{ padding:"9px 15px", borderRadius:8, border:"none", background:"#0f172a", color:"#fff", cursor:"pointer", fontWeight:800, fontSize:13, fontFamily:"inherit" }}>Edit Lead</button>}
           </div>
         </div>)}
       </Modal>
