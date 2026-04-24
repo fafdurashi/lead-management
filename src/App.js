@@ -21,7 +21,11 @@ class ErrorBoundary extends React.Component {
 const SUPABASE_URL = "https://mswsvjaortcotuytlvdq.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1zd3N2amFvcnRjb3R1eXRsdmRxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4Mzg3NjgsImV4cCI6MjA5MjQxNDc2OH0.9FxvfwGOW1ae6-EomRMhHMfVUY5aCfeyZHMDXgrCAyc";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-const ADMIN_EMAIL = "rashick2012@gmail.com";
+const SUPER_ADMIN = "rashick2012@gmail.com"; // always admin, cannot be removed
+const getAdminEmails = () => {
+  try { return JSON.parse(localStorage.getItem("lf_admins")||"[]"); } catch { return []; }
+};
+const isAdminEmail = (email) => email === SUPER_ADMIN || getAdminEmails().includes(email);
 const SHEET_ID = "1jdXliIwb3J9R_IA2XAxIgNFrpjuAMUCtd3-d2o5UMxE";
 const SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
@@ -353,6 +357,66 @@ function CallbacksPanel({ leads, onSelect }) {
   return overdue.length+dueToday.length+upcoming.length===0?(
     <div style={{ textAlign:"center", padding:48, color:"#94a3b8" }}><div style={{ fontSize:36, marginBottom:8 }}>✅</div><div style={{ fontWeight:600 }}>No follow-ups scheduled</div></div>
   ):(<><Section title="🚨 OVERDUE" items={overdue} tag="Overdue" tagColor="#ef4444"/><Section title="⏰ DUE TODAY" items={dueToday} tag="Today" tagColor="#f59e0b"/><Section title="📅 UPCOMING" items={upcoming} tag="Scheduled" tagColor="#3b82f6"/></>);
+}
+
+// ── ADMIN MANAGER COMPONENT ───────────────────────────────────────────────────
+function AdminManager({ superAdmin, showToast }) {
+  const [admins,setAdmins]     = useState(getAdminEmails);
+  const [newEmail,setNewEmail] = useState("");
+  const [saving,setSaving]     = useState(false);
+  const inp = { border:"1.5px solid #e2e8f0", borderRadius:8, padding:"8px 12px", fontSize:13, fontFamily:"inherit", outline:"none", background:"#fafbfc", color:"#0f172a" };
+
+  const save = list => { localStorage.setItem("lf_admins",JSON.stringify(list)); setAdmins(list); };
+
+  const add = async () => {
+    const email = newEmail.trim().toLowerCase();
+    if(!email||!email.includes("@")) { showToast("Enter a valid Gmail address","error"); return; }
+    if(email===superAdmin) { showToast("You are already super admin","error"); return; }
+    if(admins.includes(email)) { showToast("Already an admin","error"); return; }
+    setSaving(true);
+    await supabase.from("agents").update({role:"admin"}).eq("email",email);
+    save([...admins,email]);
+    setNewEmail(""); setSaving(false);
+    showToast(`✅ ${email} is now a Team Leader`);
+  };
+
+  const remove = async email => {
+    await supabase.from("agents").update({role:"agent"}).eq("email",email);
+    save(admins.filter(e=>e!==email));
+    showToast(`⭕ ${email} removed from admins`);
+  };
+
+  return (
+    <div>
+      {/* Super admin */}
+      <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", background:"#fef3c7", border:"1px solid #fde68a", borderRadius:10, marginBottom:8 }}>
+        <div style={{ width:34, height:34, borderRadius:"50%", background:"#d97706", color:"#fff", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:14, flexShrink:0 }}>👑</div>
+        <div style={{ flex:1 }}><div style={{ fontWeight:700, fontSize:13, color:"#92400e" }}>{superAdmin}</div><div style={{ fontSize:11, color:"#b45309" }}>Super Admin — cannot be removed</div></div>
+        <span style={{ background:"#d97706", color:"#fff", borderRadius:6, padding:"2px 8px", fontSize:10, fontWeight:800 }}>SUPER ADMIN</span>
+      </div>
+      {/* Other admins */}
+      {admins.map(email=>(
+        <div key={email} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", background:"#eff6ff", border:"1px solid #bfdbfe", borderRadius:10, marginBottom:8 }}>
+          <div style={{ width:34, height:34, borderRadius:"50%", background:"#1d4ed8", color:"#fff", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:14, flexShrink:0 }}>🏅</div>
+          <div style={{ flex:1 }}><div style={{ fontWeight:700, fontSize:13, color:"#1e3a5f" }}>{email}</div><div style={{ fontSize:11, color:"#3b82f6" }}>Team Leader — full admin access</div></div>
+          <span style={{ background:"#1d4ed8", color:"#fff", borderRadius:6, padding:"2px 8px", fontSize:10, fontWeight:800, marginRight:8 }}>ADMIN</span>
+          <button onClick={()=>remove(email)} style={{ padding:"5px 10px", borderRadius:6, border:"none", background:"#fef2f2", color:"#dc2626", cursor:"pointer", fontWeight:700, fontSize:11, fontFamily:"inherit" }}>Remove</button>
+        </div>
+      ))}
+      {admins.length===0&&<div style={{ fontSize:13, color:"#94a3b8", fontStyle:"italic", padding:"8px 0" }}>No team leaders added yet</div>}
+      {/* Add new */}
+      <div style={{ background:"#f8fafc", borderRadius:10, padding:"14px 16px", border:"1.5px dashed #e2e8f0", marginTop:12 }}>
+        <div style={{ fontSize:11, fontWeight:700, color:"#64748b", marginBottom:8, letterSpacing:.4 }}>ADD TEAM LEADER</div>
+        <div style={{ display:"flex", gap:10 }}>
+          <input value={newEmail} onChange={e=>setNewEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&add()} placeholder="teamleader@gmail.com" type="email" style={{...inp,flex:1}}/>
+          <button onClick={add} disabled={saving||!newEmail.trim()} style={{ padding:"8px 18px", borderRadius:8, border:"none", background:"#0f2744", color:"#fff", cursor:newEmail.trim()?"pointer":"not-allowed", fontWeight:700, fontSize:13, fontFamily:"inherit", opacity:saving||!newEmail.trim()?0.6:1 }}>
+            {saving?"Adding…":"+ Add"}
+          </button>
+        </div>
+        <div style={{ fontSize:11, color:"#94a3b8", marginTop:8 }}>The team leader must sign in with this exact Gmail. They get admin access automatically on login.</div>
+      </div>
+    </div>
+  );
 }
 
 // ── IMPORT CSV COMPONENT ──────────────────────────────────────────────────────
@@ -717,7 +781,7 @@ function App() {
   const ACTIVE_DISPS = customDisps || DISPOSITIONS;
   // agentName comes from agents table (their typed name), fallback to Google name
   const [agentName, setAgentName] = useState("");
-  const isAdmin    = user?.email === ADMIN_EMAIL;
+  const isAdmin    = isAdminEmail(user?.email||"");
   const agentPhoto = user?.user_metadata?.avatar_url;
 
   const showToast=(msg,type="success")=>{ setToast({msg,type}); setTimeout(()=>setToast(null),4000); };
@@ -744,7 +808,7 @@ function App() {
         setAgents(allAgents||[]);
       } else {
         // First time — admin auto-registers with email prefix, agents must type name
-        if(user.email===ADMIN_EMAIL) {
+        if(user.email===SUPER_ADMIN) {
           await supabase.from("agents").insert({
             id: user.id, email: user.email,
             full_name: "Admin",
@@ -768,15 +832,15 @@ function App() {
   const saveAgentName = async () => {
     if(!typedName.trim()) return;
     const name = typedName.trim();
+    const role = isAdminEmail(user.email) ? "admin" : "agent";
     await supabase.from("agents").insert({
       id: user.id, email: user.email,
       full_name: name,
       avatar_url: user?.user_metadata?.avatar_url||"",
-      role: "agent", is_active: true,
+      role, is_active: true,
     });
     setAgentName(name);
     setNeedsName(false);
-    // Reload agents list
     const {data:allAgents} = await supabase.from("agents").select("*").eq("is_active",true).order("full_name");
     setAgents(allAgents||[]);
     showToast(`Welcome ${name}! Your account is ready ✅`);
@@ -1909,6 +1973,13 @@ function App() {
         {tab==="settings"&&isAdmin&&(
           <div style={{ maxWidth:700 }}>
             <div style={{ fontWeight:900, fontSize:20, color:"#0f172a", fontFamily:"'Sora',sans-serif", marginBottom:20 }}>⚙️ Settings</div>
+
+            {/* Admin / Team Leader Management */}
+            <div style={{ background:"#fff", borderRadius:14, border:"1px solid #e9ecf3", padding:24, marginBottom:16 }}>
+              <div style={{ fontWeight:800, fontSize:15, marginBottom:4, fontFamily:"'Sora',sans-serif" }}>👑 Admin & Team Leaders</div>
+              <div style={{ fontSize:13, color:"#64748b", marginBottom:16 }}>Team leaders have full admin access — they can add/edit/delete leads, assign agents, and see all data. Add their Gmail addresses below.</div>
+              <AdminManager superAdmin={SUPER_ADMIN} showToast={showToast}/>
+            </div>
 
             {/* Custom Dispositions */}
             <div style={{ background:"#fff", borderRadius:14, border:"1px solid #e9ecf3", padding:24, marginBottom:16 }}>
