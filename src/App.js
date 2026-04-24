@@ -238,7 +238,10 @@ function LoginScreen() {
 // ── LEAD FORM ─────────────────────────────────────────────────────────────────
 function LeadForm({ initial, onSave, onCancel, title, saving, agentName, isAdmin, agents }) {
   const [f,setF] = useState(initial);
-  const s=(k,v)=>setF(x=>({...x,[k]:v}));
+  // Sync when initial prop changes (e.g. opening different lead)
+  useEffect(()=>{ setF(initial); },[initial?.phone, initial?.leadName]);
+  const s=(k,v)=>setF(x=>({...x,[k]:String(v??"")}));
+  const sNum=(k,v)=>setF(x=>({...x,[k]:v===""?0:parseInt(v)||0}));
   const inp={width:"100%",border:"1.5px solid #e2e8f0",borderRadius:8,padding:"8px 11px",fontSize:13,fontFamily:"inherit",outline:"none",background:"#fafbfc",boxSizing:"border-box",color:"#0f172a"};
   const F=({label,span,children})=>(<div style={{ gridColumn:span||"auto" }}><label style={{ fontSize:11, fontWeight:700, color:"#64748b", display:"block", marginBottom:3, letterSpacing:.4 }}>{label}</label>{children}</div>);
   return (
@@ -250,16 +253,16 @@ function LeadForm({ initial, onSave, onCancel, title, saving, agentName, isAdmin
 
       <div style={{ fontSize:10, fontWeight:800, color:"#1d4ed8", letterSpacing:1, marginBottom:10 }}>📋 LEAD INFO</div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:16 }}>
-        <F label="Serial No"><input value={f.serialNo} onChange={e=>s("serialNo",e.target.value)} style={inp} placeholder="LD-001"/></F>
-        <F label="Date Received"><input type="date" value={f.dateReceived} onChange={e=>s("dateReceived",e.target.value)} style={inp}/></F>
+        <F label="Serial No"><input value={f.serialNo||""} onChange={e=>s("serialNo",e.target.value)} style={inp} placeholder="LD-001"/></F>
+        <F label="Date Received"><input type="date" value={f.dateReceived||""} onChange={e=>s("dateReceived",e.target.value)} style={inp}/></F>
         <F label="EID No"><input value={f.eidNo||""} onChange={e=>s("eidNo",e.target.value)} style={inp} placeholder="Emirates ID"/></F>
       </div>
 
       <div style={{ fontSize:10, fontWeight:800, color:"#10b981", letterSpacing:1, marginBottom:10 }}>👤 CONTACT DETAILS</div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:16 }}>
-        <F label="Customer Name *" span="1/-1"><input value={f.leadName} onChange={e=>s("leadName",e.target.value)} style={inp} placeholder="Full name"/></F>
-        <F label="Phone Number"><input value={f.phone} onChange={e=>s("phone",e.target.value)} style={inp} placeholder="+971501234567"/></F>
-        <F label="WhatsApp Number"><input value={f.whatsappNumber} onChange={e=>s("whatsappNumber",e.target.value)} style={inp} placeholder="+971501234567"/></F>
+        <F label="Customer Name *" span="1/-1"><input value={f.leadName||""} onChange={e=>s("leadName",e.target.value)} style={inp} placeholder="Full name"/></F>
+        <F label="Phone Number"><input type="tel" value={f.phone||""} onChange={e=>s("phone",e.target.value)} style={inp} placeholder="+971501234567"/></F>
+        <F label="WhatsApp Number"><input type="tel" value={f.whatsappNumber||""} onChange={e=>s("whatsappNumber",e.target.value)} style={inp} placeholder="+971501234567"/></F>
         <F label="City"><select value={f.city} onChange={e=>s("city",e.target.value)} style={{...inp,cursor:"pointer"}}><option value="">Select city…</option>{CITIES.map(c=><option key={c}>{c}</option>)}</select></F>
         <F label="Language"><select value={f.language} onChange={e=>s("language",e.target.value)} style={{...inp,cursor:"pointer"}}>{LANGUAGES.map(l=><option key={l}>{l}</option>)}</select></F>
       </div>
@@ -267,26 +270,26 @@ function LeadForm({ initial, onSave, onCancel, title, saving, agentName, isAdmin
       <div style={{ fontSize:10, fontWeight:800, color:"#f59e0b", letterSpacing:1, marginBottom:10 }}>📣 AD SOURCE</div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:16 }}>
         <F label="Platform"><select value={f.adSource} onChange={e=>s("adSource",e.target.value)} style={{...inp,cursor:"pointer"}}>{AD_SOURCES.map(x=><option key={x}>{x}</option>)}</select></F>
-        <F label="Campaign Name"><input value={f.adCampaign} onChange={e=>s("adCampaign",e.target.value)} style={inp} placeholder="e.g. Ramadan Promo"/></F>
-        <F label="Ad Set / Audience"><input value={f.adSet} onChange={e=>s("adSet",e.target.value)} style={inp} placeholder="e.g. UAE Males 25-40"/></F>
+        <F label="Campaign Name"><input value={f.adCampaign||""} onChange={e=>s("adCampaign",e.target.value)} style={inp} placeholder="e.g. Ramadan Promo"/></F>
+        <F label="Ad Set / Audience"><input value={f.adSet||""} onChange={e=>s("adSet",e.target.value)} style={inp} placeholder="e.g. UAE Males 25-40"/></F>
       </div>
 
       <div style={{ fontSize:10, fontWeight:800, color:"#3b82f6", letterSpacing:1, marginBottom:10 }}>💼 SALES DETAILS</div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:16 }}>
         <F label="Product / Service"><select value={f.product} onChange={e=>s("product",e.target.value)} style={{...inp,cursor:"pointer"}}><option value="">Select…</option>{PRODUCTS.map(p=><option key={p}>{p}</option>)}</select></F>
         <F label="Assigned Agent">{isAdmin?<select value={f.agent} onChange={e=>s("agent",e.target.value)} style={{...inp,cursor:"pointer"}}><option value="">Select agent…</option>{(agents||[]).filter(a=>a.role!=="admin").map(a=><option key={a.id} value={a.full_name}>{a.full_name}</option>)}</select>:<input value={agentName} disabled style={{...inp,background:"#f1f5f9",color:"#64748b"}}/>}</F>
-        <F label="Call Attempts"><input type="number" min="0" value={f.attemptCount} onChange={e=>s("attemptCount",Number(e.target.value))} style={inp}/></F>
+        <F label="Call Attempts"><input type="number" min="0" value={f.attemptCount??0} onChange={e=>sNum("attemptCount",e.target.value)} style={inp}/></F>
         <F label="Disposition"><select value={f.disposition} onChange={e=>s("disposition",e.target.value)} style={{...inp,cursor:"pointer"}}>{DISPOSITIONS.map(d=><option key={d.label}>{d.label}</option>)}</select></F>
         <F label="Lead Status"><input value={f.leadStatus||""} onChange={e=>s("leadStatus",e.target.value)} style={inp} placeholder="e.g. Hot"/></F>
         <F label="Sales Status"><input value={f.salesStatus||""} onChange={e=>s("salesStatus",e.target.value)} style={inp} placeholder="e.g. Pending"/></F>
-        <F label="Last Call Date"><input type="date" value={f.lastCallDate} onChange={e=>s("lastCallDate",e.target.value)} style={inp}/></F>
-        <F label="Follow-up Date"><input type="date" value={f.callbackDate} onChange={e=>s("callbackDate",e.target.value)} style={inp}/></F>
-        <F label="Google Sheet Link"><input value={f.sheetLink} onChange={e=>s("sheetLink",e.target.value)} style={inp} placeholder="https://docs.google.com/…"/></F>
+        <F label="Last Call Date"><input type="date" value={f.lastCallDate||""} onChange={e=>s("lastCallDate",e.target.value)} style={inp}/></F>
+        <F label="Follow-up Date"><input type="date" value={f.callbackDate||""} onChange={e=>s("callbackDate",e.target.value)} style={inp}/></F>
+        <F label="Google Sheet Link"><input value={f.sheetLink||""} onChange={e=>s("sheetLink",e.target.value)} style={inp} placeholder="https://docs.google.com/…"/></F>
       </div>
 
       <div style={{ marginBottom:14 }}>
         <label style={{ fontSize:11, fontWeight:700, color:"#64748b", display:"block", marginBottom:3, letterSpacing:.4 }}>Remarks / Call Notes</label>
-        <textarea value={f.callNotes} onChange={e=>s("callNotes",e.target.value)} rows={3} style={{...inp,resize:"vertical"}} placeholder="Notes from the call…"/>
+        <textarea value={f.callNotes||""} onChange={e=>s("callNotes",e.target.value)} rows={3} style={{...inp,resize:"vertical"}} placeholder="Notes from the call…"/>
       </div>
 
       <div style={{ display:"flex", gap:10, marginTop:20, justifyContent:"flex-end" }}>
