@@ -88,7 +88,7 @@ function mapDisposition(val) {
 // ── constants ─────────────────────────────────────────────────────────────────
 const AD_SOURCES   = ["Digital Leads", "Others"];
 const DISPOSITIONS = [
-  { label:"New",            color:"#6366f1", bg:"#eef2ff", icon:"🆕" },
+  { label:"New",            color:"#1d4ed8", bg:"#eef2ff", icon:"🆕" },
   { label:"Contacted",      color:"#f59e0b", bg:"#fffbeb", icon:"📞" },
   { label:"Interested",     color:"#10b981", bg:"#ecfdf5", icon:"✅" },
   { label:"Not Interested", color:"#ef4444", bg:"#fef2f2", icon:"❌" },
@@ -146,18 +146,18 @@ function SrcBadge({ source }) {
   return <span style={{ display:"inline-flex", alignItems:"center", gap:4, background:s.bg, color:s.c, borderRadius:6, padding:"2px 8px", fontSize:11, fontWeight:800 }}>{s.i} {source}</span>;
 }
 function Ava({ name, size=30 }) {
-  const pal = ["#6366f1","#f59e0b","#10b981","#3b82f6","#ec4899","#8b5cf6"];
+  const pal = ["#1e3a5f","#1d4ed8","#0369a1","#0f766e","#4338ca","#6d28d9"];
   const c = pal[(name||"A").charCodeAt(0)%pal.length];
-  return <div style={{ width:size, height:size, borderRadius:"50%", background:c, color:"#fff", display:"flex", alignItems:"center", justifyContent:"center", fontSize:size*0.36, fontWeight:800, flexShrink:0 }}>{(name||"?").split(" ").map(n=>n[0]).join("").slice(0,2)}</div>;
+  return <div style={{ width:size, height:size, borderRadius:"50%", background:c, color:"#fff", display:"flex", alignItems:"center", justifyContent:"center", fontSize:size*0.36, fontWeight:700, flexShrink:0 }}>{(name||"?").split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase()}</div>;
 }
 function Stat({ icon, label, value, sub, accent }) {
   return (
-    <div style={{ background:"#fff", borderRadius:13, padding:"16px 18px", flex:1, minWidth:120, border:"1px solid #e9ecf3", position:"relative", overflow:"hidden" }}>
+    <div style={{ background:"#fff", borderRadius:10, padding:"14px 16px", flex:1, minWidth:110, border:"1px solid #e2e8f0", position:"relative", overflow:"hidden", boxShadow:"0 1px 3px rgba(0,0,0,.04)" }}>
       <div style={{ position:"absolute", top:0, left:0, width:3, height:"100%", background:accent }}/>
-      <div style={{ fontSize:18, marginBottom:5 }}>{icon}</div>
-      <div style={{ fontSize:10, color:"#94a3b8", fontWeight:700, letterSpacing:.5 }}>{label}</div>
-      <div style={{ fontSize:22, fontWeight:900, color:"#0f172a", fontFamily:"'Sora',sans-serif", lineHeight:1.1 }}>{value}</div>
-      {sub&&<div style={{ fontSize:11, color:"#64748b", marginTop:2 }}>{sub}</div>}
+      <div style={{ fontSize:16, marginBottom:4 }}>{icon}</div>
+      <div style={{ fontSize:9, color:"#64748b", fontWeight:700, letterSpacing:.8, textTransform:"uppercase", marginBottom:2 }}>{label}</div>
+      <div style={{ fontSize:20, fontWeight:800, color:"#0f2744", lineHeight:1.1 }}>{value}</div>
+      {sub&&<div style={{ fontSize:10, color:"#94a3b8", marginTop:2 }}>{sub}</div>}
     </div>
   );
 }
@@ -189,7 +189,7 @@ function SyncBanner({ lastSync, syncing, newCount, onManualSync }) {
         </span>
         {!syncing && <span style={{ fontSize:11, color:"#94a3b8" }}>Last sync: {fmt(lastSync)} · Auto-syncs every 5 min</span>}
       </div>
-      <button onClick={onManualSync} disabled={syncing} style={{ padding:"5px 14px", borderRadius:7, border:"1.5px solid #6366f1", background:"#fff", color:"#6366f1", cursor:syncing?"not-allowed":"pointer", fontWeight:700, fontSize:12, fontFamily:"inherit", opacity:syncing?0.6:1 }}>
+      <button onClick={onManualSync} disabled={syncing} style={{ padding:"5px 14px", borderRadius:7, border:"1.5px solid #6366f1", background:"#fff", color:"#1d4ed8", cursor:syncing?"not-allowed":"pointer", fontWeight:700, fontSize:12, fontFamily:"inherit", opacity:syncing?0.6:1 }}>
         {syncing ? "Syncing…" : "🔄 Sync Now"}
       </button>
     </div>
@@ -209,7 +209,7 @@ function LoginScreen() {
     <div style={{ minHeight:"100vh", background:"linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#0f172a 100%)", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'DM Sans','Segoe UI',sans-serif" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@700;800;900&family=DM+Sans:wght@400;500;600;700;800&display=swap'); *{box-sizing:border-box} @keyframes spin{to{transform:rotate(360deg)}} @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
       <div style={{ background:"#fff", borderRadius:24, padding:"48px 40px", width:"100%", maxWidth:420, textAlign:"center", boxShadow:"0 32px 96px rgba(0,0,0,.4)" }}>
-        <div style={{ width:64, height:64, background:"linear-gradient(135deg,#6366f1,#3b82f6)", borderRadius:18, display:"flex", alignItems:"center", justifyContent:"center", fontSize:32, margin:"0 auto 20px" }}>📲</div>
+        <div style={{ width:64, height:64, background:"#0f2744", borderRadius:18, display:"flex", alignItems:"center", justifyContent:"center", fontSize:32, margin:"0 auto 20px" }}>📲</div>
         <div style={{ fontWeight:900, fontSize:28, color:"#0f172a", fontFamily:"'Sora',sans-serif", marginBottom:6 }}>LeadFlow</div>
         <div style={{ fontSize:13, color:"#64748b", marginBottom:32 }}>Telesales CRM — Sign in to continue</div>
         {error&&<div style={{ background:"#fef2f2", color:"#dc2626", borderRadius:8, padding:"10px 14px", marginBottom:16, fontSize:13, fontWeight:600 }}>⚠️ {error}</div>}
@@ -239,7 +239,7 @@ function LeadForm({ initial, onSave, onCancel, title, saving, agentName, isAdmin
         <button onClick={onCancel} style={{ background:"none", border:"none", fontSize:20, cursor:"pointer", color:"#94a3b8" }}>✕</button>
       </div>
 
-      <div style={{ fontSize:10, fontWeight:800, color:"#6366f1", letterSpacing:1, marginBottom:10 }}>📋 LEAD INFO</div>
+      <div style={{ fontSize:10, fontWeight:800, color:"#1d4ed8", letterSpacing:1, marginBottom:10 }}>📋 LEAD INFO</div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:16 }}>
         <F label="Serial No"><input value={f.serialNo} onChange={e=>s("serialNo",e.target.value)} style={inp} placeholder="LD-001"/></F>
         <F label="Date Received"><input type="date" value={f.dateReceived} onChange={e=>s("dateReceived",e.target.value)} style={inp}/></F>
@@ -283,7 +283,7 @@ function LeadForm({ initial, onSave, onCancel, title, saving, agentName, isAdmin
       <div style={{ display:"flex", gap:10, marginTop:20, justifyContent:"flex-end" }}>
         <button onClick={onCancel} style={{ padding:"9px 18px", borderRadius:8, border:"1.5px solid #e2e8f0", background:"#fff", cursor:"pointer", fontWeight:700, fontSize:13, color:"#64748b", fontFamily:"inherit" }}>Cancel</button>
         <button onClick={()=>f.leadName&&onSave({...f,agent:isAdmin?f.agent:agentName})} disabled={saving}
-          style={{ padding:"9px 22px", borderRadius:8, border:"none", background:"linear-gradient(135deg,#6366f1,#3b82f6)", cursor:"pointer", fontWeight:800, fontSize:13, color:"#fff", fontFamily:"inherit", opacity:saving?0.7:1 }}>
+          style={{ padding:"9px 22px", borderRadius:8, border:"none", background:"#0f2744", cursor:"pointer", fontWeight:800, fontSize:13, color:"#fff", fontFamily:"inherit", opacity:saving?0.7:1 }}>
           {saving?"Saving…":"Save Lead"}
         </button>
       </div>
@@ -329,7 +329,7 @@ function DispPanel({ lead, onUpdate, onClose, saving }) {
         <button onClick={()=>setTries(tries+1)} style={{ width:28, height:28, borderRadius:6, border:"1.5px solid #e2e8f0", background:"#fff", cursor:"pointer", fontWeight:800, fontSize:14, fontFamily:"inherit" }}>+</button>
       </div>
       <button onClick={()=>onUpdate({disposition:disp,callNotes:notes,callbackDate:cbDate,callbackTime:cbTime,attemptCount:tries,lastCallDate:todayStr()})} disabled={saving}
-        style={{ width:"100%", padding:12, borderRadius:10, border:"none", background:"linear-gradient(135deg,#6366f1,#3b82f6)", cursor:"pointer", fontWeight:800, fontSize:14, color:"#fff", fontFamily:"inherit", opacity:saving?0.7:1 }}>
+        style={{ width:"100%", padding:12, borderRadius:10, border:"none", background:"#0f2744", cursor:"pointer", fontWeight:800, fontSize:14, color:"#fff", fontFamily:"inherit", opacity:saving?0.7:1 }}>
         {saving?"Saving…":"Save Update"}
       </button>
     </div>
@@ -441,7 +441,7 @@ function ImportCSV({ onClose, onImport, EMPTY }) {
           <div style={{ fontSize:48, marginBottom:16 }}>📂</div>
           <div style={{ fontWeight:700, fontSize:16, marginBottom:8 }}>Upload your CSV or Excel file</div>
           <div style={{ fontSize:13, color:"#64748b", marginBottom:24 }}>Export your Excel sheet as CSV first (File → Save As → CSV)</div>
-          <label style={{ padding:"12px 32px", borderRadius:10, border:"2px dashed #6366f1", background:"#eef2ff", color:"#6366f1", cursor:"pointer", fontWeight:800, fontSize:14, display:"inline-block" }}>
+          <label style={{ padding:"12px 32px", borderRadius:10, border:"2px dashed #6366f1", background:"#eff6ff", color:"#1d4ed8", cursor:"pointer", fontWeight:800, fontSize:14, display:"inline-block" }}>
             Choose CSV File
             <input type="file" accept=".csv,.txt" onChange={handleFile} style={{ display:"none" }}/>
           </label>
@@ -465,7 +465,7 @@ function ImportCSV({ onClose, onImport, EMPTY }) {
           </div>
           <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
             <button onClick={()=>setStep(1)} style={{ padding:"9px 18px", borderRadius:8, border:"1.5px solid #e2e8f0", background:"#fff", cursor:"pointer", fontWeight:700, fontSize:13, fontFamily:"inherit", color:"#64748b" }}>Back</button>
-            <button onClick={()=>setStep(3)} disabled={mapped.length===0} style={{ padding:"9px 22px", borderRadius:8, border:"none", background:"linear-gradient(135deg,#6366f1,#3b82f6)", cursor:"pointer", fontWeight:800, fontSize:13, color:"#fff", fontFamily:"inherit", opacity:mapped.length===0?0.5:1 }}>
+            <button onClick={()=>setStep(3)} disabled={mapped.length===0} style={{ padding:"9px 22px", borderRadius:8, border:"none", background:"#0f2744", cursor:"pointer", fontWeight:800, fontSize:13, color:"#fff", fontFamily:"inherit", opacity:mapped.length===0?0.5:1 }}>
               Preview {mapped.length} Leads →
             </button>
           </div>
@@ -477,8 +477,8 @@ function ImportCSV({ onClose, onImport, EMPTY }) {
           <div style={{ fontSize:13, color:"#64748b", marginBottom:12 }}>Ready to import <strong>{mapped.length}</strong> leads. First 5 shown below:</div>
           <div style={{ background:"#f8f9ff", borderRadius:10, overflow:"auto", marginBottom:20, maxHeight:260 }}>
             <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
-              <thead><tr style={{ background:"#eef2ff" }}>
-                {["Name","Phone","Agent","Campaign","Disposition"].map(h=><th key={h} style={{ padding:"8px 10px", textAlign:"left", fontWeight:700, color:"#6366f1", whiteSpace:"nowrap" }}>{h}</th>)}
+              <thead><tr style={{ background:"#eff6ff" }}>
+                {["Name","Phone","Agent","Campaign","Disposition"].map(h=><th key={h} style={{ padding:"8px 10px", textAlign:"left", fontWeight:700, color:"#1d4ed8", whiteSpace:"nowrap" }}>{h}</th>)}
               </tr></thead>
               <tbody>
                 {mapped.slice(0,5).map((l,i)=>(
@@ -532,8 +532,8 @@ function CustomDispositions({ current, onChange, onReset }) {
         ))}
       </div>
       <div style={{ display:"flex", gap:8 }}>
-        <button onClick={add} style={{ padding:"7px 14px", borderRadius:8, border:"1.5px solid #6366f1", background:"#eef2ff", color:"#6366f1", cursor:"pointer", fontWeight:700, fontSize:13, fontFamily:"inherit" }}>+ Add Status</button>
-        <button onClick={()=>onChange(disps.map(d=>({...d,bg:d.color+"18"})))} style={{ padding:"7px 14px", borderRadius:8, border:"none", background:"linear-gradient(135deg,#6366f1,#3b82f6)", color:"#fff", cursor:"pointer", fontWeight:700, fontSize:13, fontFamily:"inherit" }}>Save Changes</button>
+        <button onClick={add} style={{ padding:"7px 14px", borderRadius:8, border:"1.5px solid #6366f1", background:"#eff6ff", color:"#1d4ed8", cursor:"pointer", fontWeight:700, fontSize:13, fontFamily:"inherit" }}>+ Add Status</button>
+        <button onClick={()=>onChange(disps.map(d=>({...d,bg:d.color+"18"})))} style={{ padding:"7px 14px", borderRadius:8, border:"none", background:"#0f2744", color:"#fff", cursor:"pointer", fontWeight:700, fontSize:13, fontFamily:"inherit" }}>Save Changes</button>
         <button onClick={onReset} style={{ padding:"7px 14px", borderRadius:8, border:"1.5px solid #e2e8f0", background:"#fff", color:"#64748b", cursor:"pointer", fontWeight:700, fontSize:13, fontFamily:"inherit" }}>Reset Defaults</button>
       </div>
     </div>
@@ -564,7 +564,7 @@ function CallHistory({ leads, supabase, ngrokUrl, isAdmin, agentName, EMPTY, set
             <tr key={log.id} style={{ borderBottom:"1px solid #f8f9fc" }}>
               <td style={{ padding:"9px 10px", fontSize:11, color:"#64748b" }}>{new Date(log.created_at).toLocaleString()}</td>
               <td style={{ padding:"9px 10px", fontWeight:600 }}>{log.agent_name||"—"}</td>
-              <td style={{ padding:"9px 10px" }}><span style={{ background:"#eef2ff", color:"#6366f1", borderRadius:6, padding:"2px 8px", fontWeight:700, fontSize:12 }}>{log.extension||"—"}</span></td>
+              <td style={{ padding:"9px 10px" }}><span style={{ background:"#eff6ff", color:"#1d4ed8", borderRadius:6, padding:"2px 8px", fontWeight:700, fontSize:12 }}>{log.extension||"—"}</span></td>
               <td style={{ padding:"9px 10px", fontWeight:600 }}>{log.phone_number||"—"}</td>
               <td style={{ padding:"9px 10px" }}><span style={{ fontSize:12 }}>{log.direction==="inbound"?"📥 In":"📤 Out"}</span></td>
               <td style={{ padding:"9px 10px" }}><span style={{ color:statusColor[log.status]||"#64748b", fontWeight:700, fontSize:12 }}>{log.status||"—"}</span></td>
@@ -601,7 +601,7 @@ function PreRegisterAgent({ onSave }) {
       </div>
       <button onClick={async()=>{ if(!name.trim()) return; setSaving(true); await onSave(name.trim(), email.trim()); setName(""); setEmail(""); setSaving(false); }}
         disabled={!name.trim()||saving}
-        style={{ padding:"9px 18px", borderRadius:8, border:"none", background:"linear-gradient(135deg,#6366f1,#3b82f6)", color:"#fff", cursor:name.trim()?"pointer":"not-allowed", fontWeight:800, fontSize:13, fontFamily:"inherit", whiteSpace:"nowrap", opacity:saving?0.7:1 }}>
+        style={{ padding:"9px 18px", borderRadius:8, border:"none", background:"#0f2744", color:"#fff", cursor:name.trim()?"pointer":"not-allowed", fontWeight:800, fontSize:13, fontFamily:"inherit", whiteSpace:"nowrap", opacity:saving?0.7:1 }}>
         {saving?"Adding…":"+ Add Agent"}
       </button>
     </div>
@@ -1005,7 +1005,7 @@ function App() {
         {/* Profile photo from Google */}
         {agentPhoto
           ? <img src={agentPhoto} alt="" style={{ width:72, height:72, borderRadius:"50%", objectFit:"cover", margin:"0 auto 16px", display:"block", border:"3px solid #6366f1" }}/>
-          : <div style={{ width:72, height:72, borderRadius:"50%", background:"linear-gradient(135deg,#6366f1,#3b82f6)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:32, margin:"0 auto 16px" }}>👤</div>
+          : <div style={{ width:72, height:72, borderRadius:"50%", background:"#0f2744", display:"flex", alignItems:"center", justifyContent:"center", fontSize:32, margin:"0 auto 16px" }}>👤</div>
         }
         <div style={{ fontWeight:900, fontSize:22, color:"#0f172a", fontFamily:"'Sora',sans-serif", marginBottom:4 }}>Welcome to LeadFlow!</div>
         <div style={{ fontSize:13, color:"#64748b", marginBottom:8 }}>{user.email}</div>
@@ -1035,53 +1035,131 @@ function App() {
   return (
     <div style={{ fontFamily:"'DM Sans','Segoe UI',sans-serif", background:"#f0f2f8", minHeight:"100vh", direction:isArabic?"rtl":"ltr" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Sora:wght@700;800;900&family=DM+Sans:wght@400;500;600;700;800&display=swap');
-        *{box-sizing:border-box} ::-webkit-scrollbar{width:5px;height:5px} ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px}
-        @keyframes mIn{from{transform:scale(.94) translateY(12px);opacity:0}to{transform:scale(1) translateY(0);opacity:1}}
-        @keyframes spin{to{transform:rotate(360deg)}} @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-        input:focus,select:focus,textarea:focus{border-color:#6366f1!important;box-shadow:0 0 0 3px rgba(99,102,241,.1)}
-        tbody tr:hover td{background:#f8f9ff!important}
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:'Inter','DM Sans','Segoe UI',sans-serif}
+        ::-webkit-scrollbar{width:4px;height:4px}
+        ::-webkit-scrollbar-track{background:transparent}
+        ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px}
+        @keyframes mIn{from{transform:scale(.96) translateY(8px);opacity:0}to{transform:scale(1) translateY(0);opacity:1}}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+        input:focus,select:focus,textarea:focus{border-color:#1e3a5f!important;box-shadow:0 0 0 3px rgba(30,58,95,.1)!important;outline:none}
+        tbody tr:hover td{background:#f8fafd!important}
+        .sidebar-item:hover{background:rgba(255,255,255,.08)!important}
+        .sidebar-item.active{background:rgba(255,255,255,.15)!important;border-left:3px solid #60a5fa!important}
+        .action-btn:hover{opacity:.88}
+        th{user-select:none}
       `}</style>
 
-      {/* HEADER */}
-      <div style={{ background:"#fff", borderBottom:"1px solid #e9ecf3", padding:"0 22px" }}>
-        <div style={{ maxWidth:1500, margin:"0 auto", display:"flex", alignItems:"center", justifyContent:"space-between", height:56 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-            <div style={{ width:34, height:34, background:"linear-gradient(135deg,#6366f1,#3b82f6)", borderRadius:10, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>📲</div>
-            <div><div style={{ fontWeight:900, fontSize:16, color:"#0f172a", fontFamily:"'Sora',sans-serif", lineHeight:1.1 }}>LeadFlow</div><div style={{ fontSize:9, color:"#94a3b8", fontWeight:700, letterSpacing:.4 }}>{isAdmin?"ADMIN":"TELESALES AGENT"}</div></div>
+      {/* ── LAYOUT WRAPPER ── */}
+      <div style={{ display:"flex", minHeight:"100vh", background:"#f1f4f9", fontFamily:"'Inter','DM Sans',sans-serif", direction:isArabic?"rtl":"ltr" }}>
+
+        {/* ── SIDEBAR ── */}
+        <div style={{ width:220, background:"#0f2744", flexShrink:0, display:"flex", flexDirection:"column", position:"fixed", top:0, bottom:0, left:isArabic?"auto":"0", right:isArabic?"0":"auto", zIndex:100, overflowY:"auto" }}>
+          {/* Logo */}
+          <div style={{ padding:"20px 16px 16px", borderBottom:"1px solid rgba(255,255,255,.08)" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+              <div style={{ width:36, height:36, background:"linear-gradient(135deg,#2563eb,#3b82f6)", borderRadius:10, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, flexShrink:0 }}>📲</div>
+              <div>
+                <div style={{ fontWeight:800, fontSize:16, color:"#fff", letterSpacing:-.3 }}>LeadFlow</div>
+                <div style={{ fontSize:9, color:"#60a5fa", fontWeight:700, letterSpacing:.8, textTransform:"uppercase" }}>{isAdmin?"Administrator":"Telesales"}</div>
+              </div>
+            </div>
           </div>
-          <div style={{ display:"flex", gap:3, background:"#f0f2f8", borderRadius:10, padding:3, flexWrap:"wrap" }}>
-            {navB("leads",T.leads)}
-            {navB("callbacks",T.callbacks,urgentCbs)}
-            {navB("pipeline","🔁 Pipeline")}
-            {navB("livecalls",T.livecalls,liveCalls.length)}
-            {navB("analytics",T.analytics)}
-            {navB("campaigns","📣 Campaigns")}
-            {navB("leaderboard",T.leaderboard)}
-            {!isAdmin&&navB("kpi",T.kpi)}
-            {isAdmin&&navB("agents",T.agents)}
-            {isAdmin&&navB("audit",T.audit)}
-            {isAdmin&&navB("settings",T.settings)}
-          </div>
-          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-            {isAdmin&&<span style={{ background:"#fef3c7", color:"#92400e", borderRadius:8, padding:"3px 10px", fontSize:11, fontWeight:800 }}>👑 {T.admin}</span>}
-            {isAdmin&&<button onClick={()=>setShowWaAdd(true)} style={{ padding:"8px 14px", borderRadius:9, border:"none", background:"#25d366", color:"#fff", fontWeight:800, fontSize:13, cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", gap:6 }}>💬 WhatsApp Lead</button>}
-            {isAdmin&&<button onClick={()=>setShowImport(true)} style={{ padding:"8px 14px", borderRadius:9, border:"1.5px solid #6366f1", background:"#eef2ff", color:"#6366f1", fontWeight:800, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}>📥 Import CSV</button>}
-            {isAdmin&&<button onClick={()=>setShowAdd(true)} style={{ padding:"8px 16px", borderRadius:9, border:"none", background:"linear-gradient(135deg,#6366f1,#3b82f6)", color:"#fff", fontWeight:800, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}>{T.addLead}</button>}
-            {/* Arabic/English toggle */}
-            <button onClick={()=>{ const next=!isArabic; setIsArabic(next); localStorage.setItem("lf_lang",next?"ar":"en"); }} style={{ padding:"6px 12px", borderRadius:8, border:"1.5px solid #e2e8f0", background:"#fff", cursor:"pointer", fontWeight:700, fontSize:12, fontFamily:"inherit", color:"#475569" }}>
-              {isArabic?"EN":"ع"}
-            </button>
-            <div style={{ display:"flex", alignItems:"center", gap:8, borderLeft:"1px solid #e9ecf3", paddingLeft:12 }}>
-              {agentPhoto?<img src={agentPhoto} alt="" style={{ width:32, height:32, borderRadius:"50%", objectFit:"cover" }}/>:<Ava name={agentName} size={32}/>}
-              <div><div style={{ fontSize:12, fontWeight:700, color:"#0f172a", lineHeight:1.2 }}>{agentName}</div><div style={{ fontSize:10, color:"#94a3b8" }}>{user.email}</div></div>
-              <button onClick={signOut} style={{ padding:"5px 10px", borderRadius:7, border:"1.5px solid #e2e8f0", background:"#fff", cursor:"pointer", fontSize:11, fontWeight:700, color:"#64748b", fontFamily:"inherit" }}>Sign Out</button>
+
+          {/* Nav items */}
+          <nav style={{ flex:1, padding:"10px 8px" }}>
+            {/* Main section */}
+            <div style={{ fontSize:9, fontWeight:700, color:"rgba(255,255,255,.35)", letterSpacing:1.2, padding:"8px 8px 4px", textTransform:"uppercase" }}>Main</div>
+            {[
+              {id:"leads",     icon:"📋", label:isArabic?"العملاء":"Leads",        badge:0},
+              {id:"pipeline",  icon:"🔁", label:isArabic?"خط سير":"Pipeline",      badge:0},
+              {id:"callbacks", icon:"📞", label:isArabic?"المتابعات":"Follow-ups", badge:urgentCbs},
+              {id:"livecalls", icon:"🔴", label:isArabic?"مكالمات":"Live Calls",   badge:liveCalls.length},
+            ].map(({id,icon,label,badge})=>(
+              <button key={id} onClick={()=>setTab(id)} className={`sidebar-item${tab===id?" active":""}`} style={{ width:"100%", display:"flex", alignItems:"center", gap:9, padding:"8px 10px", borderRadius:7, border:tab===id?"none":"none", borderLeft:tab===id?"3px solid #60a5fa":"3px solid transparent", background:tab===id?"rgba(255,255,255,.12)":"transparent", color:tab===id?"#fff":"rgba(255,255,255,.6)", cursor:"pointer", fontWeight:tab===id?700:500, fontSize:13, fontFamily:"inherit", marginBottom:1, textAlign:"left", transition:"all .15s" }}>
+                <span style={{ fontSize:14 }}>{icon}</span>
+                <span style={{ flex:1 }}>{label}</span>
+                {badge>0&&<span style={{ background:"#ef4444", color:"#fff", borderRadius:10, padding:"1px 6px", fontSize:9, fontWeight:800, minWidth:18, textAlign:"center" }}>{badge}</span>}
+              </button>
+            ))}
+
+            {/* Analytics section */}
+            <div style={{ fontSize:9, fontWeight:700, color:"rgba(255,255,255,.35)", letterSpacing:1.2, padding:"12px 8px 4px", textTransform:"uppercase" }}>Analytics</div>
+            {[
+              {id:"analytics",   icon:"📊", label:isArabic?"التحليلات":"Analytics"},
+              {id:"campaigns",   icon:"📣", label:isArabic?"الحملات":"Campaigns"},
+              {id:"leaderboard", icon:"🏆", label:isArabic?"المتصدرون":"Leaderboard"},
+              ...(!isAdmin?[{id:"kpi",icon:"🎯",label:isArabic?"أدائي":"My KPIs"}]:[]),
+            ].map(({id,icon,label})=>(
+              <button key={id} onClick={()=>setTab(id)} className={`sidebar-item${tab===id?" active":""}`} style={{ width:"100%", display:"flex", alignItems:"center", gap:9, padding:"8px 10px", borderRadius:7, border:"none", borderLeft:tab===id?"3px solid #60a5fa":"3px solid transparent", background:tab===id?"rgba(255,255,255,.12)":"transparent", color:tab===id?"#fff":"rgba(255,255,255,.6)", cursor:"pointer", fontWeight:tab===id?700:500, fontSize:13, fontFamily:"inherit", marginBottom:1, textAlign:"left", transition:"all .15s" }}>
+                <span style={{ fontSize:14 }}>{icon}</span>
+                <span>{label}</span>
+              </button>
+            ))}
+
+            {/* Admin section */}
+            {isAdmin&&<>
+              <div style={{ fontSize:9, fontWeight:700, color:"rgba(255,255,255,.35)", letterSpacing:1.2, padding:"12px 8px 4px", textTransform:"uppercase" }}>Admin</div>
+              {[
+                {id:"agents",  icon:"👥", label:isArabic?"الوكلاء":"Agents"},
+                {id:"audit",   icon:"📋", label:isArabic?"السجل":"Audit Log"},
+                {id:"settings",icon:"⚙️", label:isArabic?"الإعدادات":"Settings"},
+              ].map(({id,icon,label})=>(
+                <button key={id} onClick={()=>setTab(id)} className={`sidebar-item${tab===id?" active":""}`} style={{ width:"100%", display:"flex", alignItems:"center", gap:9, padding:"8px 10px", borderRadius:7, border:"none", borderLeft:tab===id?"3px solid #60a5fa":"3px solid transparent", background:tab===id?"rgba(255,255,255,.12)":"transparent", color:tab===id?"#fff":"rgba(255,255,255,.6)", cursor:"pointer", fontWeight:tab===id?700:500, fontSize:13, fontFamily:"inherit", marginBottom:1, textAlign:"left", transition:"all .15s" }}>
+                  <span style={{ fontSize:14 }}>{icon}</span>
+                  <span>{label}</span>
+                </button>
+              ))}
+            </>}
+          </nav>
+
+          {/* User profile at bottom */}
+          <div style={{ padding:"12px 12px 16px", borderTop:"1px solid rgba(255,255,255,.08)" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
+              {agentPhoto?<img src={agentPhoto} alt="" style={{ width:32,height:32,borderRadius:"50%",objectFit:"cover",flexShrink:0 }}/>:<Ava name={agentName} size={32}/>}
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:12, fontWeight:700, color:"#fff", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{agentName}</div>
+                <div style={{ fontSize:9, color:"rgba(255,255,255,.45)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{user.email}</div>
+              </div>
+              {isAdmin&&<span style={{ background:"#1d4ed8", color:"#93c5fd", borderRadius:5, padding:"2px 5px", fontSize:8, fontWeight:800, flexShrink:0 }}>ADMIN</span>}
+            </div>
+            <div style={{ display:"flex", gap:6 }}>
+              <button onClick={()=>{ const next=!isArabic; setIsArabic(next); localStorage.setItem("lf_lang",next?"ar":"en"); }} style={{ flex:1, padding:"6px", borderRadius:6, border:"1px solid rgba(255,255,255,.15)", background:"rgba(255,255,255,.07)", cursor:"pointer", fontWeight:700, fontSize:11, fontFamily:"inherit", color:"rgba(255,255,255,.7)" }}>
+                {isArabic?"EN":"ع"}
+              </button>
+              <button onClick={signOut} style={{ flex:2, padding:"6px", borderRadius:6, border:"1px solid rgba(255,255,255,.15)", background:"rgba(255,255,255,.07)", cursor:"pointer", fontWeight:600, fontSize:11, fontFamily:"inherit", color:"rgba(255,255,255,.7)" }}>
+                Sign Out
+              </button>
             </div>
           </div>
         </div>
-      </div>
 
-      <div style={{ maxWidth:1500, margin:"0 auto", padding:"20px 22px" }}>
+        {/* ── MAIN CONTENT ── */}
+        <div style={{ marginLeft:isArabic?0:220, marginRight:isArabic?220:0, flex:1, display:"flex", flexDirection:"column", minWidth:0 }}>
+
+          {/* ── TOP BAR ── */}
+          <div style={{ background:"#fff", borderBottom:"1px solid #e2e8f0", padding:"0 24px", height:52, display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, zIndex:50, boxShadow:"0 1px 3px rgba(0,0,0,.06)" }}>
+            {/* Page title */}
+            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+              <div style={{ fontWeight:700, fontSize:15, color:"#0f2744" }}>
+                {tab==="leads"?"📋 Leads":tab==="pipeline"?"🔁 Pipeline":tab==="callbacks"?"📞 Follow-ups":tab==="livecalls"?"🔴 Live Calls":tab==="analytics"?"📊 Analytics":tab==="campaigns"?"📣 Campaign Performance":tab==="leaderboard"?"🏆 Leaderboard":tab==="kpi"?"🎯 My KPIs":tab==="agents"?"👥 Agent Management":tab==="audit"?"📋 Audit Log":"⚙️ Settings"}
+              </div>
+              {urgentCbs>0&&tab!=="callbacks"&&<span style={{ background:"#fef2f2", color:"#dc2626", borderRadius:6, padding:"2px 8px", fontSize:11, fontWeight:700 }}>⚠️ {urgentCbs} callbacks due</span>}
+            </div>
+            {/* Action buttons */}
+            {isAdmin&&(
+              <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                <button onClick={()=>setShowWaAdd(true)} style={{ padding:"6px 12px", borderRadius:7, border:"1.5px solid #16a34a", background:"#f0fdf4", color:"#16a34a", cursor:"pointer", fontWeight:600, fontSize:12, fontFamily:"inherit", display:"flex", alignItems:"center", gap:5 }}>💬 WhatsApp</button>
+                <button onClick={()=>setShowImport(true)} style={{ padding:"6px 12px", borderRadius:7, border:"1.5px solid #2563eb", background:"#eff6ff", color:"#2563eb", cursor:"pointer", fontWeight:600, fontSize:12, fontFamily:"inherit" }}>📥 Import</button>
+                <button onClick={()=>setShowAdd(true)} style={{ padding:"6px 14px", borderRadius:7, border:"none", background:"#0f2744", color:"#fff", cursor:"pointer", fontWeight:700, fontSize:12, fontFamily:"inherit", display:"flex", alignItems:"center", gap:5 }}>+ Add Lead</button>
+              </div>
+            )}
+          </div>
+
+          {/* ── PAGE CONTENT ── */}
+          <div style={{ padding:"16px 24px", flex:1 }}>
 
         {/* Sync Banner */}
         <SyncBanner lastSync={lastSync} syncing={syncing} newCount={newCount} onManualSync={syncFromSheet}/>
@@ -1131,7 +1209,7 @@ function App() {
             <div onClick={e=>e.stopPropagation()} style={{ background:"#fff", borderRadius:16, padding:28, width:300, textAlign:"center", boxShadow:"0 16px 48px rgba(0,0,0,.2)" }}>
               <div style={{ fontWeight:800, fontSize:16, marginBottom:16, fontFamily:"'Sora',sans-serif" }}>🎯 Set Daily Target</div>
               <input type="number" min="1" value={tempTarget} onChange={e=>setTempTarget(Number(e.target.value))} style={{ width:"100%", border:"1.5px solid #e2e8f0", borderRadius:8, padding:"10px", fontSize:18, textAlign:"center", fontFamily:"inherit", outline:"none", marginBottom:16, fontWeight:800 }}/>
-              <button onClick={()=>{ localStorage.setItem("lf_target",tempTarget); setTarget(tempTarget); setShowTargetEdit(false); }} style={{ width:"100%", padding:10, borderRadius:9, border:"none", background:"linear-gradient(135deg,#6366f1,#3b82f6)", color:"#fff", fontWeight:800, fontSize:14, cursor:"pointer", fontFamily:"inherit" }}>Save Target</button>
+              <button onClick={()=>{ localStorage.setItem("lf_target",tempTarget); setTarget(tempTarget); setShowTargetEdit(false); }} style={{ width:"100%", padding:10, borderRadius:9, border:"none", background:"#0f2744", color:"#fff", fontWeight:800, fontSize:14, cursor:"pointer", fontFamily:"inherit" }}>Save Target</button>
             </div>
           </div>
         )}
@@ -1156,7 +1234,7 @@ function App() {
               <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
                 <thead><tr style={{ background:"#f8f9ff", borderBottom:"1.5px solid #e9ecf3" }}>
                   {["#","Date","Customer Name","Phone / WhatsApp","EID","Source","Disposition","Lead Status","Sales Status","Agent","Attempts","Follow-up","Actions"].map(h=>(
-                    <th key={h} style={{ padding:"11px 12px", textAlign:"left", fontSize:10, fontWeight:800, color:"#6366f1", letterSpacing:.5, whiteSpace:"nowrap" }}>{h}</th>
+                    <th key={h} style={{ padding:"9px 12px", textAlign:"left", fontSize:10, fontWeight:700, color:"#1e3a5f", letterSpacing:.6, whiteSpace:"nowrap", background:"#f8fafc", borderBottom:"2px solid #e2e8f0" }}>{h}</th>
                   ))}
                 </tr></thead>
                 <tbody>
@@ -1187,7 +1265,7 @@ function App() {
                       </td>
                       <td style={{ padding:"10px 12px" }}>
                         <div style={{ display:"flex", gap:4 }}>
-                          <button onClick={()=>setDispLead(l)} style={{ padding:"4px 8px", borderRadius:6, border:"none", background:"#eef2ff", color:"#6366f1", cursor:"pointer", fontWeight:700, fontSize:11, fontFamily:"inherit" }}>Update</button>
+                          <button onClick={()=>setDispLead(l)} style={{ padding:"4px 8px", borderRadius:6, border:"none", background:"#eff6ff", color:"#1d4ed8", cursor:"pointer", fontWeight:700, fontSize:11, fontFamily:"inherit" }}>Update</button>
                           {isAdmin&&<button onClick={()=>setEditLead(l)} style={{ padding:"4px 8px", borderRadius:6, border:"none", background:"#f1f5f9", color:"#475569", cursor:"pointer", fontWeight:700, fontSize:11, fontFamily:"inherit" }}>Edit</button>}
                           {isAdmin&&<button onClick={()=>setDelLead(l)} style={{ padding:"4px 8px", borderRadius:6, border:"none", background:"#fef2f2", color:"#ef4444", cursor:"pointer", fontWeight:700, fontSize:11, fontFamily:"inherit" }}>Del</button>}
                         </div>
@@ -1284,7 +1362,7 @@ function App() {
                       <div>
                         <div style={{ fontWeight:800, fontSize:15, color:"#0f172a" }}>{a.full_name}</div>
                         <div style={{ fontSize:12, color:"#64748b" }}>{a.email}</div>
-                        <div style={{ fontSize:10, background:"#eef2ff", color:"#6366f1", borderRadius:6, padding:"1px 7px", display:"inline-block", fontWeight:700, marginTop:3 }}>Agent</div>
+                        <div style={{ fontSize:10, background:"#eff6ff", color:"#1d4ed8", borderRadius:6, padding:"1px 7px", display:"inline-block", fontWeight:700, marginTop:3 }}>Agent</div>
                       </div>
                     </div>
                     {/* Stats */}
@@ -1298,7 +1376,7 @@ function App() {
                     </div>
                     {/* Assign leads today + delete */}
                     <div style={{ borderTop:"1px solid #f1f5f9", paddingTop:12 }}>
-                      <div style={{ fontSize:11, color:"#64748b", marginBottom:8, fontWeight:600 }}>📋 Unassigned leads today: <strong style={{ color:"#6366f1" }}>{leads.filter(l=>!l.agent&&l.dateReceived===todayStr()).length}</strong></div>
+                      <div style={{ fontSize:11, color:"#64748b", marginBottom:8, fontWeight:600 }}>📋 Unassigned leads today: <strong style={{ color:"#1d4ed8" }}>{leads.filter(l=>!l.agent&&l.dateReceived===todayStr()).length}</strong></div>
                       <div style={{ display:"flex", gap:8 }}>
                         <button onClick={async()=>{
                           const unassigned = leads.filter(l=>(!l.agent||l.agent==="")&&l.dateReceived===todayStr());
@@ -1308,7 +1386,7 @@ function App() {
                           }
                           setLeads(ls=>ls.map(l=>(!l.agent||l.agent==="")&&l.dateReceived===todayStr()?{...l,agent:a.full_name}:l));
                           showToast(`✅ ${unassigned.length} leads assigned to ${a.full_name}!`);
-                        }} style={{ flex:1, padding:"8px", borderRadius:8, border:"none", background:"linear-gradient(135deg,#6366f1,#3b82f6)", color:"#fff", cursor:"pointer", fontWeight:700, fontSize:12, fontFamily:"inherit" }}>
+                        }} style={{ flex:1, padding:"8px", borderRadius:8, border:"none", background:"#0f2744", color:"#fff", cursor:"pointer", fontWeight:700, fontSize:12, fontFamily:"inherit" }}>
                           Assign Today's Leads →
                         </button>
                         <button onClick={async()=>{
@@ -1340,7 +1418,7 @@ function App() {
               <div style={{ display:"flex", gap:10, alignItems:"center", flexWrap:"wrap" }}>
                 <div style={{ background:"#f8f9ff", borderRadius:8, padding:"10px 16px", fontSize:13 }}>
                   <span style={{ color:"#94a3b8" }}>Unassigned leads: </span>
-                  <span style={{ fontWeight:800, color:"#6366f1", fontSize:16 }}>{leads.filter(l=>!l.agent||l.agent==="").length}</span>
+                  <span style={{ fontWeight:800, color:"#1d4ed8", fontSize:16 }}>{leads.filter(l=>!l.agent||l.agent==="").length}</span>
                 </div>
                 <div style={{ background:"#f8f9ff", borderRadius:8, padding:"10px 16px", fontSize:13 }}>
                   <span style={{ color:"#94a3b8" }}>Active agents: </span>
@@ -1412,7 +1490,7 @@ function App() {
                         <div style={{ display:"flex", alignItems:"center", gap:10, flex:1 }}>
                           {a.avatar_url?<img src={a.avatar_url} alt="" style={{ width:40,height:40,borderRadius:"50%",objectFit:"cover" }}/>:<Ava name={a.full_name} size={40}/>}
                           <div>
-                            <div style={{ fontWeight:800, fontSize:15, color:"#0f172a" }}>{a.full_name} {isMe&&<span style={{ fontSize:11, color:"#6366f1", fontWeight:700 }}>(You)</span>}</div>
+                            <div style={{ fontWeight:800, fontSize:15, color:"#0f172a" }}>{a.full_name} {isMe&&<span style={{ fontSize:11, color:"#1d4ed8", fontWeight:700 }}>(You)</span>}</div>
                             <div style={{ fontSize:12, color:"#64748b" }}>{a.email}</div>
                           </div>
                         </div>
@@ -1506,7 +1584,7 @@ function App() {
               <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
                 <thead><tr style={{ background:"#f8f9ff", borderBottom:"1.5px solid #e9ecf3" }}>
                   {[isArabic?"الوقت":"Time", isArabic?"الإجراء":"Action", isArabic?"العميل":"Lead", isArabic?"التفاصيل":"Detail", isArabic?"بواسطة":"By"].map(h=>(
-                    <th key={h} style={{ padding:"11px 14px", textAlign:isArabic?"right":"left", fontSize:10, fontWeight:800, color:"#6366f1", letterSpacing:.5 }}>{h}</th>
+                    <th key={h} style={{ padding:"11px 14px", textAlign:isArabic?"right":"left", fontSize:10, fontWeight:800, color:"#1e3a5f", letterSpacing:.6 }}>{h}</th>
                   ))}
                 </tr></thead>
                 <tbody>
@@ -1662,7 +1740,7 @@ function App() {
                           <div style={{ marginBottom:8 }}>
                             <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
                               <span style={{ fontSize:12, color:"#475569", fontWeight:600 }}>Lead Volume</span>
-                              <span style={{ fontSize:12, color:"#6366f1", fontWeight:700 }}>{c.total} leads</span>
+                              <span style={{ fontSize:12, color:"#1d4ed8", fontWeight:700 }}>{c.total} leads</span>
                             </div>
                             <div style={{ background:"#f1f5f9", borderRadius:8, height:10, overflow:"hidden" }}>
                               <div style={{ height:"100%", width:`${(c.total/maxTotal)*100}%`, background:"linear-gradient(90deg,#6366f1,#3b82f6)", borderRadius:8 }}/>
@@ -1832,16 +1910,16 @@ function App() {
                     const d = await r.json();
                     showToast(`✅ Connected! ${d.status}`);
                   } catch(e){ showToast("⚠️ Could not reach bridge — check URL","error"); }
-                }} style={{ padding:"10px 20px", borderRadius:8, border:"none", background:"linear-gradient(135deg,#6366f1,#3b82f6)", color:"#fff", cursor:"pointer", fontWeight:800, fontSize:13, fontFamily:"inherit" }}>
+                }} style={{ padding:"10px 20px", borderRadius:8, border:"none", background:"#0f2744", color:"#fff", cursor:"pointer", fontWeight:800, fontSize:13, fontFamily:"inherit" }}>
                   Save & Test
                 </button>
               </div>
               {ngrokUrl && (
                 <div style={{ marginTop:12, display:"flex", gap:8, flexWrap:"wrap" }}>
-                  <a href={`${ngrokUrl}/health`} target="_blank" rel="noreferrer" style={{ fontSize:12, color:"#6366f1", fontWeight:700 }}>🔗 Health Check</a>
-                  <a href={`${ngrokUrl}/extensions`} target="_blank" rel="noreferrer" style={{ fontSize:12, color:"#6366f1", fontWeight:700 }}>🔗 Extensions</a>
-                  <a href={`${ngrokUrl}/live-calls`} target="_blank" rel="noreferrer" style={{ fontSize:12, color:"#6366f1", fontWeight:700 }}>🔗 Live Calls</a>
-                  <a href={`${ngrokUrl}/cdr`} target="_blank" rel="noreferrer" style={{ fontSize:12, color:"#6366f1", fontWeight:700 }}>🔗 CDR</a>
+                  <a href={`${ngrokUrl}/health`} target="_blank" rel="noreferrer" style={{ fontSize:12, color:"#1d4ed8", fontWeight:700 }}>🔗 Health Check</a>
+                  <a href={`${ngrokUrl}/extensions`} target="_blank" rel="noreferrer" style={{ fontSize:12, color:"#1d4ed8", fontWeight:700 }}>🔗 Extensions</a>
+                  <a href={`${ngrokUrl}/live-calls`} target="_blank" rel="noreferrer" style={{ fontSize:12, color:"#1d4ed8", fontWeight:700 }}>🔗 Live Calls</a>
+                  <a href={`${ngrokUrl}/cdr`} target="_blank" rel="noreferrer" style={{ fontSize:12, color:"#1d4ed8", fontWeight:700 }}>🔗 CDR</a>
                 </div>
               )}
             </div>
@@ -1853,7 +1931,7 @@ function App() {
               <div style={{ fontSize:13, color:"#0f172a", fontWeight:600 }}>
                 Yeastar Panel → Integrations → API → Webhook Event Push → URL:
               </div>
-              <div style={{ background:"#fff", borderRadius:8, padding:"10px 14px", marginTop:8, fontFamily:"monospace", fontSize:13, color:"#6366f1", wordBreak:"break-all" }}>
+              <div style={{ background:"#fff", borderRadius:8, padding:"10px 14px", marginTop:8, fontFamily:"monospace", fontSize:13, color:"#1d4ed8", wordBreak:"break-all" }}>
                 {ngrokUrl ? `${ngrokUrl}/yeastar-webhook` : "https://YOUR-NGROK-URL/yeastar-webhook"}
               </div>
             </div>
@@ -2033,16 +2111,18 @@ function App() {
           {detail.sheetLink&&<a href={detail.sheetLink} target="_blank" rel="noreferrer" style={{ display:"inline-flex", alignItems:"center", gap:6, background:"#e8f5e9", color:"#2e7d32", borderRadius:8, padding:"7px 14px", textDecoration:"none", fontWeight:700, fontSize:13, marginBottom:14 }}>📊 Open Google Sheet</a>}
           <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:4 }}>
             <a href={`https://wa.me/${(detail.whatsappNumber||detail.phone||"").replace(/\D/g,"")}`} target="_blank" rel="noreferrer" style={{ padding:"9px 15px", borderRadius:8, background:"#25d366", color:"#fff", fontWeight:800, fontSize:13, textDecoration:"none" }}>W Chat</a>
-            <button onClick={()=>{setDispLead(detail);setDetail(null);}} style={{ padding:"9px 15px", borderRadius:8, border:"none", background:"#eef2ff", color:"#6366f1", cursor:"pointer", fontWeight:800, fontSize:13, fontFamily:"inherit" }}>Update Status</button>
+            <button onClick={()=>{setDispLead(detail);setDetail(null);}} style={{ padding:"9px 15px", borderRadius:8, border:"none", background:"#eff6ff", color:"#1d4ed8", cursor:"pointer", fontWeight:800, fontSize:13, fontFamily:"inherit" }}>Update Status</button>
             {isAdmin&&<button onClick={()=>{setEditLead(detail);setDetail(null);}} style={{ padding:"9px 15px", borderRadius:8, border:"none", background:"#0f172a", color:"#fff", cursor:"pointer", fontWeight:800, fontSize:13, fontFamily:"inherit" }}>Edit Lead</button>}
           </div>
         </div>)}
       </Modal>
       <Modal show={!!delLead} onClose={()=>setDelLead(null)} width={380}>
-        {delLead&&(<div style={{ padding:32, textAlign:"center" }}><div style={{ fontSize:42, marginBottom:12 }}>🗑️</div><div style={{ fontWeight:900, fontSize:17, marginBottom:8, fontFamily:"'Sora',sans-serif" }}>Delete this lead?</div><div style={{ color:"#64748b", marginBottom:22, fontSize:14 }}>Permanently remove <strong>{delLead.leadName}</strong>?</div><div style={{ display:"flex", gap:10, justifyContent:"center" }}><button onClick={()=>setDelLead(null)} style={{ padding:"9px 22px", borderRadius:8, border:"1.5px solid #e2e8f0", background:"#fff", cursor:"pointer", fontWeight:700, fontSize:13, fontFamily:"inherit", color:"#64748b" }}>Cancel</button><button onClick={()=>del(delLead.id)} disabled={saving} style={{ padding:"9px 22px", borderRadius:8, border:"none", background:"#ef4444", color:"#fff", cursor:"pointer", fontWeight:800, fontSize:13, fontFamily:"inherit", opacity:saving?0.7:1 }}>{saving?"Deleting…":"Delete"}</button></div></div>)}
+        {delLead&&(<div style={{ padding:32, textAlign:"center" }}><div style={{ fontSize:42, marginBottom:12 }}>🗑️</div><div style={{ fontWeight:900, fontSize:17, marginBottom:8 }}>Delete this lead?</div><div style={{ color:"#64748b", marginBottom:22, fontSize:14 }}>Permanently remove <strong>{delLead.leadName}</strong>?</div><div style={{ display:"flex", gap:10, justifyContent:"center" }}><button onClick={()=>setDelLead(null)} style={{ padding:"9px 22px", borderRadius:8, border:"1.5px solid #e2e8f0", background:"#fff", cursor:"pointer", fontWeight:700, fontSize:13, fontFamily:"inherit", color:"#64748b" }}>Cancel</button><button onClick={()=>del(delLead.id)} disabled={saving} style={{ padding:"9px 22px", borderRadius:8, border:"none", background:"#ef4444", color:"#fff", cursor:"pointer", fontWeight:800, fontSize:13, fontFamily:"inherit", opacity:saving?0.7:1 }}>{saving?"Deleting…":"Delete"}</button></div></div>)}
       </Modal>
       {toast&&<Toast msg={toast.msg} type={toast.type}/>}
-    </div>
+        </div>{/* end page content */}
+        </div>{/* end main content */}
+      </div>{/* end layout wrapper */}
   );
 }
 
