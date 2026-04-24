@@ -103,7 +103,7 @@ const DISPOSITIONS = [
   { label:"Dropped",        color:"#dc2626", bg:"#fee2e2", icon:"🗑️" },
 ];
 const PRODUCTS  = ["Product A","Product B","Product C","Service Plan X","Service Plan Y"];
-const LANGUAGES = ["Arabic","English","French","Urdu","Hindi","Other"];
+const LANGUAGES = ["Arabic","English","Malayalam","Filipino","Hindi","Urdu","French","Other"];
 const GENDERS   = ["Male","Female","Not Specified"];
 const CITIES    = ["Dubai","Abu Dhabi","Sharjah","Riyadh","Jeddah","Cairo","Amman","Kuwait City","Doha","Other"];
 
@@ -169,8 +169,13 @@ function Modal({ show, onClose, width=640, children }) {
   useEffect(()=>{ document.body.style.overflow=show?"hidden":""; return()=>{document.body.style.overflow="";} },[show]);
   if(!show) return null;
   return (
-    <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(2,8,23,.55)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", padding:16, backdropFilter:"blur(3px)" }}>
-      <div onClick={e=>e.stopPropagation()} style={{ background:"#fff", borderRadius:18, width:"100%", maxWidth:width, maxHeight:"93vh", overflowY:"auto", boxShadow:"0 32px 96px rgba(0,0,0,.22)", animation:"mIn .22s cubic-bezier(.34,1.56,.64,1)" }}>
+    <div
+      onMouseDown={(e)=>{ if(e.target===e.currentTarget) onClose(); }}
+      style={{ position:"fixed", inset:0, background:"rgba(2,8,23,.55)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", padding:16, backdropFilter:"blur(3px)" }}>
+      <div
+        onMouseDown={e=>e.stopPropagation()}
+        onClick={e=>e.stopPropagation()}
+        style={{ background:"#fff", borderRadius:18, width:"100%", maxWidth:width, maxHeight:"93vh", overflowY:"auto", boxShadow:"0 32px 96px rgba(0,0,0,.22)", animation:"mIn .22s cubic-bezier(.34,1.56,.64,1)" }}>
         {children}
       </div>
     </div>
@@ -1323,8 +1328,8 @@ function App() {
 
         {/* Target edit modal */}
         {showTargetEdit&&(
-          <div onClick={()=>setShowTargetEdit(false)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.4)", zIndex:999, display:"flex", alignItems:"center", justifyContent:"center" }}>
-            <div onClick={e=>e.stopPropagation()} style={{ background:"#fff", borderRadius:16, padding:28, width:300, textAlign:"center", boxShadow:"0 16px 48px rgba(0,0,0,.2)" }}>
+          <div onMouseDown={e=>{ if(e.target===e.currentTarget) setShowTargetEdit(false); }} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.4)", zIndex:999, display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <div onMouseDown={e=>e.stopPropagation()} style={{ background:"#fff", borderRadius:16, padding:28, width:300, textAlign:"center", boxShadow:"0 16px 48px rgba(0,0,0,.2)" }}>
               <div style={{ fontWeight:800, fontSize:16, marginBottom:16, fontFamily:"'Sora',sans-serif" }}>🎯 Set Daily Target</div>
               <input type="number" min="1" value={tempTarget} onChange={e=>setTempTarget(Number(e.target.value))} style={{ width:"100%", border:"1.5px solid #e2e8f0", borderRadius:8, padding:"10px", fontSize:18, textAlign:"center", fontFamily:"inherit", outline:"none", marginBottom:16, fontWeight:800 }}/>
               <button onClick={()=>{ localStorage.setItem("lf_target",tempTarget); setTarget(tempTarget); setShowTargetEdit(false); }} style={{ width:"100%", padding:10, borderRadius:9, border:"none", background:"#0f2744", color:"#fff", fontWeight:800, fontSize:14, cursor:"pointer", fontFamily:"inherit" }}>Save Target</button>
