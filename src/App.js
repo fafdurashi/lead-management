@@ -1091,8 +1091,19 @@ function App() {
   if(!user) return <LoginScreen/>;
 
   // ── Pre-compute everything BEFORE early returns ───────────────
+  const EMPTY = {
+    serialNo:"", dateReceived:todayStr(), timeReceived:"",
+    leadName:"", phone:"", whatsappNumber:"", email:"",
+    gender:"Not Specified", city:"", language:"Arabic",
+    adSource:"Digital Leads", adCampaign:"", adSet:"",
+    product:"", disposition:"New", callbackDate:"",
+    callbackTime:"", agent:agentName, callNotes:"",
+    attemptCount:0, lastCallDate:"", sheetLink:"",
+    eidNo:"", leadStatus:"", callStatus:"",
+    salesStatus:"", remarks:""
+  };
+
   const T = isArabic ? {
-    leads:"العملاء", callbacks:"المتابعات", analytics:"التحليلات",
     agents:"الوكلاء", settings:"الإعدادات", livecalls:"المكالمات",
     leaderboard:"المتصدرون", kpi:"أداء الوكيل", audit:"سجل التغييرات",
     addLead:"+ إضافة عميل", search:"🔍 بحث...", total:"إجمالي العملاء",
@@ -1119,17 +1130,6 @@ function App() {
   const others=leads.filter(l=>l.adSource==="Others").length;
   const inp={border:"1.5px solid #e2e8f0",borderRadius:8,padding:"8px 11px",fontSize:13,fontFamily:"inherit",background:"#fff",outline:"none",cursor:"pointer",color:"#0f172a"};
   const navB=(id,lbl,badge)=>(<button onClick={()=>setTab(id)} style={{ padding:"7px 14px", borderRadius:8, border:"none", cursor:"pointer", fontWeight:700, fontSize:13, fontFamily:"inherit", background:tab===id?"#fff":"transparent", color:tab===id?"#0f172a":"#94a3b8", boxShadow:tab===id?"0 1px 4px rgba(0,0,0,.1)":"none", display:"flex", alignItems:"center", gap:5 }}>{lbl}{badge>0&&<span style={{ background:"#ef4444", color:"#fff", borderRadius:10, padding:"1px 6px", fontSize:10, fontWeight:900 }}>{badge}</span>}</button>);
-  const EMPTY = useMemo(()=>({
-    serialNo:"", dateReceived:todayStr(), timeReceived:"",
-    leadName:"", phone:"", whatsappNumber:"", email:"",
-    gender:"Not Specified", city:"", language:"Arabic",
-    adSource:"Digital Leads", adCampaign:"", adSet:"",
-    product:"", disposition:"New", callbackDate:"",
-    callbackTime:"", agent:agentName, callNotes:"",
-    attemptCount:0, lastCallDate:"", sheetLink:"",
-    eidNo:"", leadStatus:"", callStatus:"",
-    salesStatus:"", remarks:""
-  }),[agentName]);
 
   // First time agent — ask for their name
   if(needsName) return (
