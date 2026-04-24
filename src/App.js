@@ -663,6 +663,7 @@ function App() {
   const ACTIVE_DISPS = customDisps || DISPOSITIONS;
   // agentName comes from agents table (their typed name), fallback to Google name
   const [agentName, setAgentName] = useState("");
+  const isAdmin    = user?.email === ADMIN_EMAIL;
   const agentPhoto = user?.user_metadata?.avatar_url;
 
   const showToast=(msg,type="success")=>{ setToast({msg,type}); setTimeout(()=>setToast(null),4000); };
