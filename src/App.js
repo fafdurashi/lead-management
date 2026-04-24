@@ -237,10 +237,8 @@ function LoginScreen() {
 
 // ── LEAD FORM ─────────────────────────────────────────────────────────────────
 function LeadForm({ initial, onSave, onCancel, title, saving, agentName, isAdmin, agents }) {
-  const [f,setF] = useState(initial);
-  // Sync when initial prop changes (e.g. opening different lead)
-  useEffect(()=>{ setF(initial); },[initial?.phone, initial?.leadName]);
-  const s=(k,v)=>setF(x=>({...x,[k]:String(v??"")}));
+  const [f,setF] = useState(()=>({...initial}));
+  const s=(k,v)=>setF(x=>({...x,[k]:v??""}));
   const sNum=(k,v)=>setF(x=>({...x,[k]:v===""?0:parseInt(v)||0}));
   const inp={width:"100%",border:"1.5px solid #e2e8f0",borderRadius:8,padding:"8px 11px",fontSize:13,fontFamily:"inherit",outline:"none",background:"#fafbfc",boxSizing:"border-box",color:"#0f172a"};
   const F=({label,span,children})=>(<div style={{ gridColumn:span||"auto" }}><label style={{ fontSize:11, fontWeight:700, color:"#64748b", display:"block", marginBottom:3, letterSpacing:.4 }}>{label}</label>{children}</div>);
@@ -1121,7 +1119,17 @@ function App() {
   const others=leads.filter(l=>l.adSource==="Others").length;
   const inp={border:"1.5px solid #e2e8f0",borderRadius:8,padding:"8px 11px",fontSize:13,fontFamily:"inherit",background:"#fff",outline:"none",cursor:"pointer",color:"#0f172a"};
   const navB=(id,lbl,badge)=>(<button onClick={()=>setTab(id)} style={{ padding:"7px 14px", borderRadius:8, border:"none", cursor:"pointer", fontWeight:700, fontSize:13, fontFamily:"inherit", background:tab===id?"#fff":"transparent", color:tab===id?"#0f172a":"#94a3b8", boxShadow:tab===id?"0 1px 4px rgba(0,0,0,.1)":"none", display:"flex", alignItems:"center", gap:5 }}>{lbl}{badge>0&&<span style={{ background:"#ef4444", color:"#fff", borderRadius:10, padding:"1px 6px", fontSize:10, fontWeight:900 }}>{badge}</span>}</button>);
-  const EMPTY={serialNo:"",dateReceived:todayStr(),timeReceived:"",leadName:"",phone:"",whatsappNumber:"",email:"",gender:"Not Specified",city:"",language:"Arabic",adSource:"Digital Leads",adCampaign:"",adSet:"",product:"",disposition:"New",callbackDate:"",callbackTime:"",agent:agentName,callNotes:"",attemptCount:0,lastCallDate:"",sheetLink:"",eidNo:"",leadStatus:"",callStatus:"",salesStatus:"",remarks:""};
+  const EMPTY = useMemo(()=>({
+    serialNo:"", dateReceived:todayStr(), timeReceived:"",
+    leadName:"", phone:"", whatsappNumber:"", email:"",
+    gender:"Not Specified", city:"", language:"Arabic",
+    adSource:"Digital Leads", adCampaign:"", adSet:"",
+    product:"", disposition:"New", callbackDate:"",
+    callbackTime:"", agent:agentName, callNotes:"",
+    attemptCount:0, lastCallDate:"", sheetLink:"",
+    eidNo:"", leadStatus:"", callStatus:"",
+    salesStatus:"", remarks:""
+  }),[agentName]);
 
   // First time agent — ask for their name
   if(needsName) return (
@@ -2217,6 +2225,7 @@ function App() {
 
       <Modal show={showAdd} onClose={()=>setShowAdd(false)} width={700}>
         <LeadForm
+          key={showAdd?"add":"closed"}
           initial={window.__waPrefill || EMPTY}
           onSave={form=>{ window.__waPrefill=null; add(form); }}
           onCancel={()=>{ window.__waPrefill=null; setShowAdd(false); }}
@@ -2227,7 +2236,7 @@ function App() {
           agents={agents}
         />
       </Modal>
-      <Modal show={!!editLead} onClose={()=>setEditLead(null)} width={700}>{editLead&&<LeadForm initial={editLead} onSave={f=>upd(editLead.id,f)} onCancel={()=>setEditLead(null)} title="✏️ Edit Lead" saving={saving} agentName={agentName} isAdmin={isAdmin} agents={agents}/>}</Modal>
+      <Modal show={!!editLead} onClose={()=>setEditLead(null)} width={700}>{editLead&&<LeadForm key={editLead?.id} initial={editLead} onSave={f=>upd(editLead.id,f)} onCancel={()=>setEditLead(null)} title="✏️ Edit Lead" saving={saving} agentName={agentName} isAdmin={isAdmin} agents={agents}/>}</Modal>
       <Modal show={!!dispLead} onClose={()=>setDispLead(null)} width={480}>{dispLead&&<DispPanel lead={dispLead} onUpdate={p=>upd(dispLead.id,p)} onClose={()=>setDispLead(null)} saving={saving}/>}</Modal>
       <Modal show={!!detail} onClose={()=>setDetail(null)} width={580}>
         {detail&&(<div style={{ padding:26 }}>
