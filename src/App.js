@@ -2120,9 +2120,9 @@ function App() {
         {delLead&&(<div style={{ padding:32, textAlign:"center" }}><div style={{ fontSize:42, marginBottom:12 }}>🗑️</div><div style={{ fontWeight:900, fontSize:17, marginBottom:8 }}>Delete this lead?</div><div style={{ color:"#64748b", marginBottom:22, fontSize:14 }}>Permanently remove <strong>{delLead.leadName}</strong>?</div><div style={{ display:"flex", gap:10, justifyContent:"center" }}><button onClick={()=>setDelLead(null)} style={{ padding:"9px 22px", borderRadius:8, border:"1.5px solid #e2e8f0", background:"#fff", cursor:"pointer", fontWeight:700, fontSize:13, fontFamily:"inherit", color:"#64748b" }}>Cancel</button><button onClick={()=>del(delLead.id)} disabled={saving} style={{ padding:"9px 22px", borderRadius:8, border:"none", background:"#ef4444", color:"#fff", cursor:"pointer", fontWeight:800, fontSize:13, fontFamily:"inherit", opacity:saving?0.7:1 }}>{saving?"Deleting…":"Delete"}</button></div></div>)}
       </Modal>
       {toast&&<Toast msg={toast.msg} type={toast.type}/>}
-        </div>{/* end page content */}
-        </div>{/* end main content */}
-      </div>{/* end layout wrapper */}
+        </div>
+        </div>
+      </div>
   );
 }
 
