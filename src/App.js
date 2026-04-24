@@ -364,20 +364,23 @@ function ImportCSV({ onClose, onImport, EMPTY }) {
   const [importing,setImporting] = useState(false);
 
   const FIELDS = [
-    {key:"leadName",label:"Customer Name"},
-    {key:"phone",label:"Phone Number"},
-    {key:"whatsappNumber",label:"WhatsApp Number"},
-    {key:"eidNo",label:"EID No"},
-    {key:"dateReceived",label:"Date Received"},
-    {key:"agent",label:"Assigned Agent"},
-    {key:"adCampaign",label:"Campaign"},
-    {key:"adSet",label:"Ad Set"},
-    {key:"disposition",label:"Call Outcome"},
-    {key:"callNotes",label:"Remarks"},
-    {key:"leadStatus",label:"Lead Status"},
-    {key:"salesStatus",label:"Sales Status"},
-    {key:"city",label:"City"},
-    {key:"language",label:"Language"},
+    {key:"phone",         label:"Phone / WhatsApp Number", required:true},
+    {key:"whatsappNumber",label:"WhatsApp Number (if different)", required:false},
+    {key:"leadName",      label:"Customer Name",           required:false},
+    {key:"eidNo",         label:"EID No",                  required:false},
+    {key:"dateReceived",  label:"Date Received",           required:false},
+    {key:"agent",         label:"Assigned Agent",          required:false},
+    {key:"adCampaign",    label:"Campaign",                required:false},
+    {key:"adSet",         label:"Ad Set",                  required:false},
+    {key:"disposition",   label:"Call Outcome",            required:false},
+    {key:"callNotes",     label:"Remarks",                 required:false},
+    {key:"leadStatus",    label:"Lead Status",             required:false},
+    {key:"salesStatus",   label:"Sales Status",            required:false},
+    {key:"city",          label:"City",                    required:false},
+    {key:"language",      label:"Language",                required:false},
+    {key:"callbackDate",  label:"Follow-up Date",          required:false},
+    {key:"lastCallDate",  label:"Last Call Date",          required:false},
+    {key:"attemptCount",  label:"Call Attempts",           required:false},
   ];
 
   const handleFile = e => {
@@ -413,11 +416,23 @@ function ImportCSV({ onClose, onImport, EMPTY }) {
     reader.readAsText(file);
   };
 
-  const mapped = rows.map(row=>{
+  const mapped = rows.map((row,idx)=>{
     const lead={...EMPTY};
-    Object.entries(mapping).forEach(([field,colIdx])=>{ if(row[colIdx]!==undefined) lead[field]=row[colIdx]; });
+    Object.entries(mapping).forEach(([field,colIdx])=>{
+      if(colIdx!==undefined && row[colIdx]!==undefined && row[colIdx].toString().trim()!=="")
+        lead[field]=row[colIdx].toString().trim();
+    });
+    // Auto-fill whatsapp from phone if not set
+    if(!lead.whatsappNumber && lead.phone) lead.whatsappNumber = lead.phone;
+    // Default name if missing
+    if(!lead.leadName) lead.leadName = lead.phone || `Lead ${idx+1}`;
+    // Default serial
+    lead.serialNo = lead.serialNo || `IMP-${String(idx+1).padStart(3,"0")}`;
+    lead.disposition = lead.disposition || "New";
+    lead.adSource = lead.adSource || "Digital Leads";
+    lead.dateReceived = lead.dateReceived || new Date().toISOString().split("T")[0];
     return lead;
-  }).filter(l=>l.leadName);
+  }).filter(l=>l.phone); // only phone is required
 
   return (
     <div style={{ padding:26 }}>
@@ -440,23 +455,59 @@ function ImportCSV({ onClose, onImport, EMPTY }) {
         <div style={{ textAlign:"center", padding:32 }}>
           <div style={{ fontSize:48, marginBottom:16 }}>📂</div>
           <div style={{ fontWeight:700, fontSize:16, marginBottom:8 }}>Upload your CSV or Excel file</div>
-          <div style={{ fontSize:13, color:"#64748b", marginBottom:24 }}>Export your Excel sheet as CSV first (File → Save As → CSV)</div>
-          <label style={{ padding:"12px 32px", borderRadius:10, border:"2px dashed #6366f1", background:"#eff6ff", color:"#1d4ed8", cursor:"pointer", fontWeight:800, fontSize:14, display:"inline-block" }}>
-            Choose CSV File
-            <input type="file" accept=".csv,.txt" onChange={handleFile} style={{ display:"none" }}/>
-          </label>
+          <div style={{ fontSize:13, color:"#64748b", marginBottom:20 }}>Export your Excel sheet as CSV first (File → Save As → CSV)</div>
+
+          {/* Sample CSV download */}
+          <div style={{ background:"#f0fdf4", border:"1.5px solid #bbf7d0", borderRadius:10, padding:"14px 20px", marginBottom:20, display:"inline-block", textAlign:"left" }}>
+            <div style={{ fontWeight:700, fontSize:13, color:"#166534", marginBottom:6 }}>📋 Not sure about the format?</div>
+            <div style={{ fontSize:12, color:"#15803d", marginBottom:10 }}>Download our sample CSV file to see exactly which columns and format is required</div>
+            <button onClick={()=>{
+              const headers = ["Phone / WhatsApp Number","Customer Name","EID NO","Date Received","Assigned Agent","Campaign Name","Ad Set","Lead Status","Call Outcome","Remarks","City"];
+              const rows = [
+                ["+971501234567","","","2026-04-24","","Ramadan Promo","UAE Males 25-40","","","",""],
+                ["+971509876543","","","2026-04-24","","Ramadan Promo","UAE Males 25-40","","","",""],
+                ["+966551234567","","","2026-04-24","","KSA Launch","KSA All","","","",""],
+                ["+971557654321","Ahmed Al-Rashidi","784-1990-1234567-1","2026-04-23","Sara Ahmed","April Campaign","","Hot","Interested","Very interested","Dubai"],
+                ["+20101234567","Fatima Hassan","","2026-04-23","Omar Khalid","Spring Sale","","Warm","Callback","Call back after 2pm","Cairo"],
+              ];
+              const csv = [headers,...rows].map(r=>r.map(v=>`"${v}"`).join(",")).join("\n");
+              const blob = new Blob([csv],{type:"text/csv;charset=utf-8;"});
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href=url; a.download="leadflow_sample_import.csv"; a.click();
+              URL.revokeObjectURL(url);
+            }} style={{ padding:"8px 18px", borderRadius:7, border:"none", background:"#16a34a", color:"#fff", cursor:"pointer", fontWeight:700, fontSize:13, fontFamily:"inherit", display:"inline-flex", alignItems:"center", gap:6 }}>
+              📥 Download Sample CSV
+            </button>
+          </div>
+
+          <div>
+            <label style={{ padding:"12px 32px", borderRadius:10, border:"2px dashed #1d4ed8", background:"#eff6ff", color:"#1d4ed8", cursor:"pointer", fontWeight:800, fontSize:14, display:"inline-block" }}>
+              📂 Choose CSV File to Upload
+              <input type="file" accept=".csv,.txt" onChange={handleFile} style={{ display:"none" }}/>
+            </label>
+          </div>
         </div>
       )}
 
       {step===2&&(
         <div>
-          <div style={{ fontSize:13, color:"#64748b", marginBottom:16 }}>Match your file columns to LeadFlow fields. <strong>{rows.length}</strong> rows found.</div>
+          <div style={{ fontSize:13, color:"#64748b", marginBottom:8 }}>Match your file columns to LeadFlow fields. <strong>{rows.length}</strong> rows found.</div>
+          <div style={{ background:"#fffbeb", border:"1px solid #fde68a", borderRadius:8, padding:"8px 12px", marginBottom:14, fontSize:12, color:"#92400e" }}>
+            ⚠️ Only <strong>Phone / WhatsApp Number</strong> is required. All other fields are optional — agents will fill in customer details after the call
+          </div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:20, maxHeight:360, overflowY:"auto" }}>
             {FIELDS.map(f=>(
               <div key={f.key}>
-                <label style={{ fontSize:11, fontWeight:700, color:"#64748b", display:"block", marginBottom:3 }}>{f.label}</label>
+                <label style={{ fontSize:11, fontWeight:700, color:"#64748b", display:"flex", alignItems:"center", gap:5, marginBottom:3 }}>
+                  {f.label}
+                  {f.required
+                    ? <span style={{ background:"#fef2f2", color:"#dc2626", borderRadius:4, padding:"1px 5px", fontSize:9, fontWeight:700 }}>REQUIRED</span>
+                    : <span style={{ background:"#f1f5f9", color:"#94a3b8", borderRadius:4, padding:"1px 5px", fontSize:9, fontWeight:600 }}>optional</span>
+                  }
+                </label>
                 <select value={mapping[f.key]??""} onChange={e=>setMapping(m=>({...m,[f.key]:e.target.value===""?undefined:Number(e.target.value)}))}
-                  style={{ width:"100%", border:"1.5px solid #e2e8f0", borderRadius:8, padding:"7px 10px", fontSize:13, fontFamily:"inherit", outline:"none", background:"#fafbfc" }}>
+                  style={{ width:"100%", border:`1.5px solid ${f.required&&mapping[f.key]===undefined?"#fca5a5":"#e2e8f0"}`, borderRadius:8, padding:"7px 10px", fontSize:13, fontFamily:"inherit", outline:"none", background:"#fafbfc" }}>
                   <option value="">— Skip —</option>
                   {headers.map((h,i)=><option key={i} value={i}>{h}</option>)}
                 </select>
@@ -474,7 +525,10 @@ function ImportCSV({ onClose, onImport, EMPTY }) {
 
       {step===3&&(
         <div>
-          <div style={{ fontSize:13, color:"#64748b", marginBottom:12 }}>Ready to import <strong>{mapped.length}</strong> leads. First 5 shown below:</div>
+          <div style={{ fontSize:13, color:"#64748b", marginBottom:8 }}>Ready to import <strong>{mapped.length}</strong> leads. First 5 shown below:</div>
+          <div style={{ background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:8, padding:"8px 12px", marginBottom:12, fontSize:12, color:"#166534" }}>
+            ✅ Missing fields are fine — leads will be imported with blank values and can be edited later in the app
+          </div>
           <div style={{ background:"#f8f9ff", borderRadius:10, overflow:"auto", marginBottom:20, maxHeight:260 }}>
             <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
               <thead><tr style={{ background:"#eff6ff" }}>
